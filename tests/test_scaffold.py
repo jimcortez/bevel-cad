@@ -103,3 +103,14 @@ def test_skills_list_and_install(tmp_path, capsys):
     assert all(Path(f).is_file() for f in out["files"])
     assert main(["skills", "install", "--to", str(tmp_path / "sk")]) == 1  # exists, no --force
     assert main(["skills", "install", "--to", str(tmp_path / "sk"), "--force"]) == 0
+
+
+def test_create_empty_project_with_template_none(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main(["create", "empty", "--template", "none", "--no-skills", "--yes", "--json"]) == 0
+    res = _json(capsys)
+    root = Path(res["root"])
+    assert res["part_name"] is None
+    assert (root / "bevel.yaml").is_file() and (root / "configs").is_dir() and (root / "src").is_dir()
+    assert not list((root / "src").iterdir())
+    assert main(["list", "--root", str(root), "--json"]) == 0 and _json(capsys) == []

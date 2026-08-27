@@ -8,13 +8,25 @@ import pytest
 from cadquery.func import box, circle, extrude, face, fuse, intersect, text, wire
 from cadquery.occ_impl.shapes import Location
 
+from types import SimpleNamespace
+
 from bevel_cad.config import load_layers
-from bevel_cad.examples import button_label_power, button_label_spicy_family, button_label_volume
-from bevel_cad.examples.button_label import (
-    ButtonLabelParams,
-    build,
-    build_button_label,
-    build_stacked_button_label,
+
+from tests.conftest import load_example
+
+button_label = load_example("button_label")
+ButtonLabelParams = button_label.ButtonLabelParams
+build = button_label.build
+build_button_label = button_label.build_button_label
+build_stacked_button_label = button_label.build_stacked_button_label
+
+# Parameter sets of the label variants that live in a separate project (rando_parts).
+button_label_power = SimpleNamespace(STACKED_TEXT="POWER")
+button_label_spicy_family = SimpleNamespace(LEFT_TEXT="spicy", RIGHT_TEXT="family")
+button_label_volume = SimpleNamespace(
+    LEFT_TEXT="Volume", RIGHT_TEXT="", TEXT_SIZE_MM=5.0, HOLE_DIAMETER_MM=7.0,
+    _DEFAULTS={"button_label": {**button_label.DEFAULTS["button_label"], "left_text": "Volume", "right_text": "",
+                                "text_size": 5.0, "hole_diameter": 7.0}},
 )
 
 _P = ButtonLabelParams()

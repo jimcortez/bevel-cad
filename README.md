@@ -1,5 +1,7 @@
 # bevel-cad
 
+*WARNING: project under active development and not stable at all*
+
 Render, export, and configure [CadQuery](https://cadquery.readthedocs.io/) parts.
 
 `bevel` turns a `build(cfg)` function into a **render bundle** — a timestamped folder with
@@ -77,7 +79,8 @@ free-form. Missing keys raise (no silent `None`); use `cfg.get("key", default)` 
 | `bevel mcp [--transport stdio\|streamable-http]` | MCP server |
 
 Every command takes `--root DIR` and `--json`. `TARGET` is a `.py`/`.yaml` path, a project part
-name, `pkg.module[:fn]`, or a registered name (`bevel_cad.parts` entry points, examples).
+name, `pkg.module[:fn]`, or a registered name (`bevel_cad.parts` / `bevel_cad.providers` entry points).
+A ready-made project lives in [examples/](examples/).
 
 ## Docs
 

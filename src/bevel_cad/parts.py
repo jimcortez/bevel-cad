@@ -8,8 +8,7 @@ values, an optional schema).  Targets are resolved from, in order:
 1. an existing ``.py`` file path,
 2. ``<project>/src/<name>.py`` (or package) in the current project,
 3. an importable ``package.module[:callable]``,
-4. a registered name -- ``bevel_cad.parts`` / ``bevel_cad.providers`` entry
-   points, and the bundled examples.
+4. a registered name -- ``bevel_cad.parts`` / ``bevel_cad.providers`` entry points.
 """
 
 from __future__ import annotations
@@ -17,7 +16,6 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import inspect
-import pkgutil
 import sys
 from dataclasses import dataclass, field
 from hashlib import sha1
@@ -29,7 +27,6 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 PART_ATTR = "__bevel_part__"
 ENTRY_POINT_GROUP = "bevel_cad.parts"
 PROVIDER_GROUP = "bevel_cad.providers"
-EXAMPLES_PACKAGE = "bevel_cad.examples"
 
 
 class PartNotFound(LookupError):
@@ -69,7 +66,7 @@ class PartRef:
 
     name: str
     source: str
-    kind: str  # project | entry-point | provider | example
+    kind: str  # project | entry-point | provider
     location: str
     _loader: Callable[[], PartSpec] = field(repr=False, compare=False)
 
@@ -204,30 +201,9 @@ def spec_from_import_path(target: str, *, name: Optional[str] = None, source_pre
 # --- discovery ---------------------------------------------------------------------------------
 
 
-def _example_refs() -> List[PartRef]:
-    refs: List[PartRef] = []
-    try:
-        pkg = importlib.import_module(EXAMPLES_PACKAGE)
-    except ImportError:  # pragma: no cover
-        return refs
-    for info in pkgutil.iter_modules(pkg.__path__):
-        if info.name.startswith("_"):
-            continue
-        mod = f"{EXAMPLES_PACKAGE}.{info.name}"
-        refs.append(
-            PartRef(
-                name=info.name, source=f"example:{mod}", kind="example", location=mod,
-                _loader=lambda mod=mod, n=info.name: spec_from_import_path(mod, name=n, source_prefix="example"),
-            )
-        )
-    return refs
-
-
 def _entry_point_refs() -> List[PartRef]:
     refs: List[PartRef] = []
     for ep in entry_points(group=ENTRY_POINT_GROUP):
-        if ep.value.startswith(EXAMPLES_PACKAGE + "."):
-            continue  # bundled examples are listed by _example_refs
         refs.append(
             PartRef(
                 name=ep.name, source=f"entry-point:{ep.name}", kind="entry-point", location=ep.value,
@@ -287,7 +263,7 @@ def _project_refs(layout: Any) -> List[PartRef]:
 def iter_registered_parts(layout: Any = None) -> List[PartRef]:
     """All discoverable parts, project first; later duplicates of a name are dropped."""
     seen: Dict[str, PartRef] = {}
-    for ref in (*_project_refs(layout), *_entry_point_refs(), *_provider_refs(), *_example_refs()):
+    for ref in (*_project_refs(layout), *_entry_point_refs(), *_provider_refs()):
         seen.setdefault(ref.name, ref)
     return sorted(seen.values(), key=lambda r: (r.kind != "project", r.name))
 

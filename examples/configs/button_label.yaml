@@ -1,3 +1,4 @@
+# The default button badge: "Free →" left of a 20 mm hole. See src/button_label.py for every key.
 part: button_label
 rendering:
   name: button_label

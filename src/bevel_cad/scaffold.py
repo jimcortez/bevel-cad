@@ -134,7 +134,7 @@ def create_project(
     """Scaffold ``<directory or ./name>/`` with bevel.yaml, configs/, src/, renders/ and a first part."""
     if not name or not name.strip():
         raise ScaffoldError("project name is required")
-    tinfo = get_template(template)
+    tinfo = None if template in (None, "", "none") else get_template(template)
     root = Path(directory) if directory else Path.cwd() / name
     root = root.resolve()
     if (root / PROJECT_FILE).exists() and not force:
@@ -143,10 +143,10 @@ def create_project(
     mapping: Dict[str, Any] = {
         "name": name,
         "part_name": part_name,
-        "description": description or tinfo.description,
+        "description": description or (tinfo.description if tinfo else ""),
         "format": format,
         "exports_block": _exports_block(format),
-        **resolve_prompt_values(tinfo, params),
+        **(resolve_prompt_values(tinfo, params) if tinfo else {}),
     }
     written: List[str] = []
     pdir = TEMPLATES_DIR / "project"
@@ -155,13 +155,18 @@ def create_project(
     _write(root / ".gitignore", _render(pdir / "gitignore.tmpl", mapping), force=force, written=written)
     (root / "renders").mkdir(parents=True, exist_ok=True)
     _write(root / "renders" / ".gitkeep", "", force=True, written=written)
-    part_mapping = {**mapping, "name": part_name, "description": description or tinfo.description}
-    _part_files(root, part_name, tinfo, part_mapping, force=force, written=written)
+    (root / "configs").mkdir(exist_ok=True)
+    (root / "src").mkdir(exist_ok=True)
+    if tinfo is not None:
+        part_mapping = {**mapping, "name": part_name, "description": description or tinfo.description}
+        _part_files(root, part_name, tinfo, part_mapping, force=force, written=written)
+    else:
+        part_name = None
     if with_skills:
         written.extend(install_skills(root / ".claude" / "skills", force=True))
     return ScaffoldResult(
         root=str(root), files=written, part_name=part_name,
-        next_steps=[f"cd {root}", f"bevel render {part_name}", "bevel renders", "bevel add <name> --template label"],
+        next_steps=[f"cd {root}"] + ([f"bevel render {part_name}", "bevel renders"] if part_name else []) + ["bevel add <name> --template basic|label"],
     )
 
 

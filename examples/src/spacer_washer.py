@@ -1,8 +1,8 @@
 """
-Thick washer / standoff. Dimensions are given in inches in the ``planet_spacer``
+Spacer washer: a thick, filleted standoff ring. Dimensions are given in inches in the ``spacer_washer``
 block (the geometry itself is built in mm)::
 
-    planet_spacer:
+    spacer_washer:
       outer_diameter_in: 1.75
       height_in: 0.25
       hole_diameter_in: 0.25
@@ -22,11 +22,11 @@ import bevel_cad
 MM_PER_IN = 25.4
 
 DEFAULTS = {
-    "planet_spacer": {"outer_diameter_in": 1.75, "height_in": 0.25, "hole_diameter_in": 0.25, "fillet_mm": 0.75}
+    "spacer_washer": {"outer_diameter_in": 1.75, "height_in": 0.25, "hole_diameter_in": 0.25, "fillet_mm": 0.75}
 }
 
 
-def build_planet_spacer(
+def build_spacer_washer(
     outer_diameter_in: float = 1.75,
     height_in: float = 0.25,
     hole_diameter_in: float = 0.25,
@@ -51,7 +51,7 @@ def build_planet_spacer(
     return solid
 
 
-@bevel_cad.part(defaults=DEFAULTS, description="Thick washer / standoff (inch dimensions)")
+@bevel_cad.part(defaults=DEFAULTS, description="Spacer washer / standoff (inch dimensions, filleted edges)")
 def build(cfg: Any) -> cq.Solid:
-    p = cfg.planet_spacer
-    return build_planet_spacer(p.outer_diameter_in, p.height_in, p.hole_diameter_in, p.fillet_mm)
+    p = cfg.spacer_washer
+    return build_spacer_washer(p.outer_diameter_in, p.height_in, p.hole_diameter_in, p.fillet_mm)

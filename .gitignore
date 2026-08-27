@@ -4,7 +4,8 @@ __pycache__/
 dist/
 build/
 *.egg-info/
-renders/
+renders/*
+!renders/.gitkeep
 bevel.local.yaml
 .pytest_cache/
 .ruff_cache/

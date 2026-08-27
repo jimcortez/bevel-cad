@@ -1,19 +1,24 @@
-# Example bevel project that renders the parts bundled with bevel-cad.
-#   cd examples && bevel render button_label
+# Self-contained bevel example project. Copy this folder anywhere and run:
+#   bevel list
+#   bevel render button_label_custom
+#   bevel render spacer_washer spacer_washer.outer_diameter_in=2.0
 project:
   name: bevel-examples
-  description: Reference parts shipped with bevel-cad
+  description: Reference parts for bevel-cad
   configs_dir: configs
   src_dir: src
 
 rendering:
   output_dir: renders
+  tolerance: 0.001
+  angular_tolerance: 0.05
   exports:
     stl: {enabled: true}
     glb: {enabled: true}
     preview: {enabled: true}
     config: {enabled: true}
     stats: {enabled: true}
+    step: {enabled: false}
 
 viewer:
   host: localhost

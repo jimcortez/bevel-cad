@@ -33,14 +33,6 @@ dev = ["pytest>=8", "pytest-cov", "ruff", "mcp[cli]>=2,<3"]
 [project.scripts]
 bevel = "bevel_cad.cli:main"
 
-[project.entry-points."bevel_cad.parts"]
-button_label = "bevel_cad.examples.button_label"
-button_label_power = "bevel_cad.examples.button_label_power"
-button_label_volume = "bevel_cad.examples.button_label_volume"
-button_label_spicy_family = "bevel_cad.examples.button_label_spicy_family"
-planet_spacer = "bevel_cad.examples.planet_spacer"
-finger_sensor_holder = "bevel_cad.examples.finger_sensor_holder"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

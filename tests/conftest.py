@@ -37,3 +37,12 @@ def clean_logging():
     logging.root.setLevel(old_level)
     lb._memory_handler = None
     lb._saved_root_level = None
+
+EXAMPLES = Path(__file__).parent.parent / "examples"
+
+
+def load_example(name: str):
+    """Import ``examples/src/<name>.py`` as a module (the examples are a standalone project)."""
+    from bevel_cad.parts import load_module_from_file
+
+    return load_module_from_file(EXAMPLES / "src" / f"{name}.py")

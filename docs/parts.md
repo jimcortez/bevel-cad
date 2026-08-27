@@ -23,9 +23,17 @@ def build(cfg): ...
 
 Standalone files are imported with their directory on `sys.path`, so sibling imports work.
 
-## Examples shipped with bevel-cad
+## Example project
 
-`button_label`, `button_label_power`, `button_label_volume`, `button_label_spicy_family`
-(engraved plates with a button hole, two bodies), `planet_spacer` (inch-dimensioned washer),
-`finger_sensor_holder` (hinged pulse-sensor cradle, validated watertight). Run them from the
-`examples/` project: `cd examples && bevel render button_label_custom`.
+`examples/` in the bevel-cad repo is a self-contained bevel project (`bevel.yaml`, `configs/`,
+`src/`, `renders/`) with `button_label` (engraved plate with a button hole, two bodies) and
+`spacer_washer` (inch-dimensioned filleted washer):
+
+```bash
+cd examples
+bevel list
+bevel render button_label_custom          # configs/button_label_custom.yaml -> src/button_label.py
+bevel render spacer_washer spacer_washer.outer_diameter_in=2.0
+```
+
+Copy the folder anywhere; nothing in it depends on being inside the repository.

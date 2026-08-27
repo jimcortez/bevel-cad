@@ -1,0 +1,9 @@
+# Filleted spacer washer; dimensions in inches (see src/spacer_washer.py).
+part: spacer_washer
+rendering:
+  name: spacer_washer
+spacer_washer:
+  outer_diameter_in: 1.75
+  height_in: 0.25
+  hole_diameter_in: 0.25
+  fillet_mm: 0.75

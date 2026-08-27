@@ -67,13 +67,13 @@ def _emit(res: scaffold.ScaffoldResult, as_json: bool) -> None:
 
 def run_create(args: argparse.Namespace, hooks: Any) -> int:
     yes = bool(args.yes)
-    templates = [t.name for t in scaffold.list_templates()]
+    templates = [t.name for t in scaffold.list_templates()] + ["none"]
     try:
         name = args.name or _prompt("Project name", yes=yes)
         description = args.description if args.description is not None else _prompt("Description", "", yes=yes)
         fmt = args.format or _prompt("Default output model type", "stl", choices=PRIMARY_FORMATS, yes=yes)
         template = args.template or _prompt("Starting template", "basic", choices=templates, yes=yes)
-        params = _collect_prompts(template, _parse_params(args.param), yes=yes)
+        params = _collect_prompts(template, _parse_params(args.param), yes=yes) if template != "none" else {}
         res = scaffold.create_project(
             name, description=description, format=fmt, template=template,
             directory=Path(args.dir) if args.dir else None, params=params,
@@ -118,7 +118,7 @@ def register(sub: argparse._SubParsersAction, add_common) -> None:
     p.add_argument("name", nargs="?", help="project name (also the directory and the first part's name)")
     p.add_argument("--description")
     p.add_argument("--format", choices=PRIMARY_FORMATS, help="default output model type")
-    p.add_argument("--template", help="starting template (see `bevel templates`)")
+    p.add_argument("--template", help="starting template (see `bevel templates`), or 'none' for an empty project")
     p.add_argument("--dir", help="create the project here instead of ./<name>")
     p.add_argument("--param", action="append", default=[], metavar="KEY=VALUE", help="template prompt value, e.g. text=Hello")
     p.add_argument("-y", "--yes", action="store_true", help="accept defaults, never prompt")
