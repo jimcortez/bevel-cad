@@ -1,0 +1,9 @@
+# Same code as button_label, different text and a smaller hole.
+part: button_label
+rendering:
+  name: custom_label
+button_label:
+  left_text: "Mute"
+  right_text: "→"
+  text_size: 7.0
+  hole_diameter: 9.0

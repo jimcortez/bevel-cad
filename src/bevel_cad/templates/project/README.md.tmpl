@@ -1,0 +1,29 @@
+# $name
+
+$description
+
+Scaffolded with `bevel create`. Layout:
+
+```
+bevel.yaml          project config (how to render)
+configs/<part>.yaml per-part config (what to build)
+src/<part>.py       part source: build(cfg) -> CadQuery geometry
+renders/            timestamped render bundles (git-ignored)
+```
+
+## Render
+
+```bash
+bevel render $part_name                       # -> renders/$part_name_<timestamp>/
+bevel render $part_name --skip preview        # faster loop while iterating
+bevel render $part_name $part_name.some_key=1 # override any config key
+bevel render $part_name --viewer              # push to a running cadquery-web-viewer
+bevel inspect renders/<bundle>/<bundle>.stl   # watertight / components / open edges
+bevel config $part_name                       # show the fully merged config
+```
+
+## Add another part
+
+```bash
+bevel add <name> --template basic|label
+```

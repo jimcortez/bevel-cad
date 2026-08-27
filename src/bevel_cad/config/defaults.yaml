@@ -1,0 +1,58 @@
+# Built-in defaults for bevel-cad. Every project / user / part / CLI layer merges on top.
+project:
+  configs_dir: configs
+  src_dir: src
+
+rendering:
+  output_dir: renders
+  name: null            # run name; falls back to the part name
+  tolerance: 0.001      # linear tessellation tolerance (mm) for STL/GLB
+  angular_tolerance: 0.05
+  exports:
+    stl:
+      enabled: true
+      stl_ascii: false
+    preview:
+      enabled: true
+      image_width: 800
+      image_height: 600
+      elevation: 30
+      azimuth: 45
+      roll: 0
+      light_azimuth: 225
+      light_elevation: 45
+      color: "#b3b3b3"
+      opacity: 1.0
+      background: "#1a1a2e"
+    glb:
+      enabled: true
+    config:
+      enabled: true
+    stats:
+      enabled: true
+    step:
+      enabled: false
+    gltf:
+      enabled: false
+    "3mf":
+      enabled: false
+    obj:
+      enabled: false
+      unit_scale_mm_to_m: true
+      target_face_count: null
+      watertight_required: false
+
+viewer:
+  enabled: false
+  host: localhost
+  port: 32323
+  upload_timeout: 300.0
+  post_timeout: 60.0
+  tolerance: 0.05
+  angular_tolerance: 0.1
+  style:
+    protocol: null
+    texture: null
+    color_faces: null
+    color_edges: null
+    color_vertices: null

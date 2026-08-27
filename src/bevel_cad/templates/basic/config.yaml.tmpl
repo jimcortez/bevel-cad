@@ -1,0 +1,9 @@
+# $description
+part: $name          # which source to run: src/$name.py (a module path or file also works)
+rendering:
+  name: $name        # run name -> renders/$name_<timestamp>/
+
+$name:
+  block_size: 50.0          # mm, edge length of the cube
+  cylinder_diameter: 25.0   # mm
+  cylinder_depth: 25.0      # mm, measured from the top face; null = through hole

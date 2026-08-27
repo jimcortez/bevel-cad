@@ -1,0 +1,6 @@
+name: label
+description: "Engraved text plate (two bodies, plate + text_fill) for two-colour printing"
+prompts:
+  - key: text
+    prompt: Label text
+    default: Hello

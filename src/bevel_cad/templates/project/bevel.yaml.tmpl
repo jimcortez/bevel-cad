@@ -1,0 +1,29 @@
+# bevel project config -- every render in this project starts from these settings.
+# Layers (lowest -> highest): built-in defaults -> this file -> bevel.local.yaml
+#   -> part defaults -> -c FILE -> KEY=VALUE overrides.
+project:
+  name: $name
+  description: "$description"
+  configs_dir: configs   # per-part YAML files
+  src_dir: src           # part sources (build(cfg) -> geometry)
+
+rendering:
+  output_dir: renders    # bundles land in renders/<name>_<YYYYMMDD-HHMMSS>/
+  tolerance: 0.001       # linear tessellation tolerance (mm)
+  angular_tolerance: 0.05
+  exports:
+$exports_block
+    preview:
+      enabled: true
+      image_width: 800
+      image_height: 600
+      elevation: 30
+      azimuth: 45
+      color: "#b3b3b3"
+      background: "#1a1a2e"
+    config: {enabled: true}   # resolved config snapshot (re-runnable with: bevel render -c <snapshot>)
+    stats: {enabled: true}    # timings, git info, config sources
+
+viewer:                  # cadquery-web-viewer (bevel render --viewer)
+  host: localhost
+  port: 32323

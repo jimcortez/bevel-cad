@@ -1,0 +1,20 @@
+# Example bevel project that renders the parts bundled with bevel-cad.
+#   cd examples && bevel render button_label
+project:
+  name: bevel-examples
+  description: Reference parts shipped with bevel-cad
+  configs_dir: configs
+  src_dir: src
+
+rendering:
+  output_dir: renders
+  exports:
+    stl: {enabled: true}
+    glb: {enabled: true}
+    preview: {enabled: true}
+    config: {enabled: true}
+    stats: {enabled: true}
+
+viewer:
+  host: localhost
+  port: 32323

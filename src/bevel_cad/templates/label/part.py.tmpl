@@ -1,0 +1,49 @@
+"""
+$description
+
+The plate is centred on X/Y with its back at Z=0. The ``text_fill`` body exactly
+fills the engraved pockets and stands ``text_raise`` proud of the front face so it
+can be printed in a second colour and dropped in (or sliced as multi-material).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import cadquery as cq
+
+import bevel_cad
+from bevel_cad.geom.text_plate import build_text_plate
+
+DEFAULTS = {
+    "$name": {
+        "text": "$text",
+        "font": "DejaVu Sans",
+        "text_size": 10.0,
+        "text_depth": 0.8,
+        "text_raise": 0.4,
+        "thickness": 2.0,
+        "height": 25.0,
+        "margin": 3.0,
+        "chamfer": 0.8,
+        "corner_radius": 4.0,
+    }
+}
+
+
+@bevel_cad.part(defaults=DEFAULTS, description="$description")
+def build(cfg: Any) -> cq.Assembly:
+    p = cfg["$name"]
+    parts = build_text_plate(
+        str(p.text),
+        font=str(p.font),
+        text_size=float(p.text_size),
+        text_depth=float(p.text_depth),
+        text_raise=float(p.text_raise),
+        thickness=float(p.thickness),
+        height=float(p.height),
+        margin=float(p.margin),
+        chamfer=float(p.chamfer),
+        corner_radius=float(p.corner_radius),
+    )
+    return parts.to_assembly("$name")

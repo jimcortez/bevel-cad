@@ -1,0 +1,61 @@
+[project]
+name = "bevel-cad"
+version = "0.1.0"
+description = "Render, export, and configure CadQuery parts: layered YAML config, timestamped render bundles, previews, web viewer, CLI and MCP server."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+keywords = ["cadquery", "cad", "3d-printing", "stl", "step", "mcp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
+dependencies = [
+    "cadquery>=2.6",
+    "trimesh>=4.0",
+    "numpy>=1.26",
+    "pyrender>=0.1.45",
+    "pillow>=10",
+    "omegaconf>=2.3",
+    "pyyaml>=6",
+    "httpx>=0.28,<1",
+]
+
+[project.optional-dependencies]
+viewer = ["cadquery-web-viewer>=2.1"]
+mcp = ["mcp>=2,<3"]
+dev = ["pytest>=8", "pytest-cov", "ruff", "mcp[cli]>=2,<3"]
+
+[project.scripts]
+bevel = "bevel_cad.cli:main"
+
+[project.entry-points."bevel_cad.parts"]
+button_label = "bevel_cad.examples.button_label"
+button_label_power = "bevel_cad.examples.button_label_power"
+button_label_volume = "bevel_cad.examples.button_label_volume"
+button_label_spicy_family = "bevel_cad.examples.button_label_spicy_family"
+planet_spacer = "bevel_cad.examples.planet_spacer"
+finger_sensor_holder = "bevel_cad.examples.finger_sensor_holder"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bevel_cad"]
+
+[tool.uv.sources]
+cadquery-web-viewer = { path = "../cadquery-web-viewer", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = ["viewer: needs a running cadquery-web-viewer"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"

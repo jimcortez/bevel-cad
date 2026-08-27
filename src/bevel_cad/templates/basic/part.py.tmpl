@@ -1,0 +1,42 @@
+"""
+$description
+
+Config block ``$name`` (millimetres)::
+
+    $name:
+      block_size: 50.0
+      cylinder_diameter: 25.0
+      cylinder_depth: 25.0   # null -> through hole
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+import cadquery as cq
+
+import bevel_cad
+
+DEFAULTS = {"$name": {"block_size": 50.0, "cylinder_diameter": 25.0, "cylinder_depth": 25.0}}
+
+
+def build_block(block_size: float, cylinder_diameter: float, cylinder_depth: Optional[float]) -> cq.Workplane:
+    """A cube centred on the origin with a cylindrical pocket cut down from its top (+Z) face."""
+    if block_size <= 0:
+        raise ValueError("block_size must be positive.")
+    if cylinder_diameter <= 0 or cylinder_diameter >= block_size:
+        raise ValueError("cylinder_diameter must be positive and smaller than block_size.")
+    if cylinder_depth is not None and not (0 < cylinder_depth <= block_size):
+        raise ValueError("cylinder_depth must be in (0, block_size] or null for a through hole.")
+
+    block = cq.Workplane("XY").box(block_size, block_size, block_size)
+    top = block.faces(">Z").workplane()
+    if cylinder_depth is None:
+        return top.hole(cylinder_diameter)
+    return top.hole(cylinder_diameter, depth=cylinder_depth)
+
+
+@bevel_cad.part(defaults=DEFAULTS, description="$description")
+def build(cfg: Any) -> cq.Workplane:
+    p = cfg["$name"]
+    return build_block(float(p.block_size), float(p.cylinder_diameter), None if p.cylinder_depth is None else float(p.cylinder_depth))
