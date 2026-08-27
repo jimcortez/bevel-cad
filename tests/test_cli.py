@@ -52,6 +52,13 @@ def test_render_by_name_uses_project_config_and_part_defaults(project, capsys):
     assert set(d["files"]) == {"stl", "glb", "config", "stats"}
 
 
+def test_render_by_config_name_follows_part_key(project, capsys):
+    rc = main(["render", "alias", "--skip", "glb,preview", "--json"])
+    assert rc == 0
+    d = _json_out(capsys)
+    assert d["run_name"] == "aliased" and d["stats"]["render.part"].startswith("file:")
+
+
 def test_render_yaml_target_dotlist_and_filters(project, capsys):
     rc = main(["render", "configs/alias.yaml", "size=1", "--skip", "glb", "--json"])
     assert rc == 0
@@ -139,6 +146,16 @@ def test_legacy_build_returning_none(project, capsys):
     assert not (project / "renders").exists()
 
 
+def test_legacy_build_that_renders_itself_reports_its_bundle(project, capsys):
+    (project / "src" / "selfrender.py").write_text(
+        "from cadquery.func import box\nimport bevel_cad\n\n"
+        "def build(cfg):\n    bevel_cad.render_part(box(1, 1, 1), cfg, name='inner')\n    return None\n"
+    )
+    assert main(["render", "selfrender", "--json"]) == 0
+    d = _json_out(capsys)
+    assert d["run_name"] == "inner" and "stl" in d["files"]
+
+
 def test_commands_render_api_returns_result(project):
     res = commands.render("cube", overrides=["size=2"], skip=["stl"])
     assert res.run_name == "cube" and "glb" in res.written and "stl" not in res.written
@@ -147,3 +164,16 @@ def test_commands_render_api_returns_result(project):
 
 def test_no_command_prints_help(capsys):
     assert main([]) == 2
+
+
+def test_dotlist_after_flags_is_accepted(project, capsys):
+    from bevel_cad.cli.main import hoist_dotlist
+
+    assert hoist_dotlist(["render", "cube", "--skip", "glb", "size=2", "--json"]) == ["render", "cube", "size=2", "--skip", "glb", "--json"]
+    assert hoist_dotlist(["render", "--viewer", "cube", "a.b=1"]) == ["render", "cube", "a.b=1", "--viewer"]
+    assert hoist_dotlist(["upload", "renders/x", "--name", "n", "viewer.port=1"]) == ["upload", "renders/x", "viewer.port=1", "--name", "n"]
+    assert hoist_dotlist(["list", "--json"]) == ["list", "--json"]
+    rc = main(["render", "cube", "--skip", "glb,preview", "size=2", "--json"])
+    assert rc == 0
+    d = _json_out(capsys)
+    assert yaml.safe_load((Path(d["bundle_dir"]) / f"{d['stem']}.yaml").read_text())["size"] == 2

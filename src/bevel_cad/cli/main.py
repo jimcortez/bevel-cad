@@ -269,10 +269,44 @@ def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:
     return EXIT_USAGE
 
 
+_VALUE_OPTIONS = {"-c", "--config", "--name", "--out", "--only", "--skip", "--root", "--limit", "--dir",
+                  "--description", "--format", "--template", "--param", "--to", "--only", "--host", "--port",
+                  "--transport", "--render-timeout"}
+_DOTLIST_COMMANDS = {"render", "config", "upload"}
+
+
+def hoist_dotlist(argv: List[str]) -> List[str]:
+    """Move ``KEY=VALUE`` tokens next to the positionals so they may appear after flags
+    (argparse cannot intermix positionals and optionals with sub-parsers)."""
+    if not argv:
+        return argv
+    try:
+        cmd_idx = next(i for i, a in enumerate(argv) if not a.startswith("-"))
+    except StopIteration:
+        return argv
+    if argv[cmd_idx] not in _DOTLIST_COMMANDS:
+        return argv
+    head, rest = argv[: cmd_idx + 1], argv[cmd_idx + 1 :]
+    positionals: List[str] = []
+    others: List[str] = []
+    expect_value = False
+    for tok in rest:
+        if expect_value:
+            others.append(tok)
+            expect_value = False
+        elif tok.startswith("-"):
+            others.append(tok)
+            expect_value = tok in _VALUE_OPTIONS
+        else:
+            positionals.append(tok)  # target or KEY=VALUE, wherever it appears
+    return head + positionals + others
+
+
 def main(argv: Optional[Sequence[str]] = None, *, hooks: Optional[Hooks] = None) -> int:
     hooks = hooks or Hooks()
     parser = build_parser(hooks=hooks)
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    raw = list(argv) if argv is not None else sys.argv[1:]
+    args = parser.parse_args(hoist_dotlist(raw))
     if not args.command:
         parser.print_help()
         return EXIT_USAGE

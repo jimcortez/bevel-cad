@@ -23,7 +23,7 @@ from bevel_cad.parts import PartRef, PartSpec, iter_registered_parts, load_targe
 from bevel_cad.render.bundle import RenderBundle, resolve_render_bundle
 from bevel_cad.render.logbuffer import discard_render_log_buffer
 from bevel_cad.render.naming import VALID_EXPORT_FORMATS
-from bevel_cad.render.pipeline import RenderResult, render_part, start_run
+from bevel_cad.render.pipeline import RenderResult, consume_last_result, render_part, start_run
 from bevel_cad.render.planner import RenderPlanner
 from bevel_cad.render.stats import read_stats_csv
 
@@ -39,7 +39,7 @@ class Hooks:
     schema: Optional[type] = None
     project_config: Union[str, Path, None] = "auto"
     resolve_target: Optional[Callable[[DictConfig, Optional[ProjectLayout]], Optional[PartSpec]]] = None
-    prepare_config: Optional[Callable[[DictConfig, LoadedConfig], Any]] = None
+    prepare_config: Optional[Callable[[DictConfig, LoadedConfig, Any], Any]] = None  # (cfg, loaded, run) -> build cfg
     add_render_flags: Optional[Callable[[Any], None]] = None
     stage_descriptions: Mapping[str, str] = field(default_factory=dict)
 
@@ -105,6 +105,9 @@ def resolve_target_and_config(
             files.append(cfg_file)
             lc = _load()
             layout = lc.layout
+            part_key = lc.cfg.get("part")
+            if part_key:
+                code_target = str(part_key)  # configs/<name>.yaml may point at another source
 
     spec: Optional[PartSpec] = None
     if code_target is None:
@@ -173,12 +176,17 @@ def render(
 
         register_stage_descriptions(hooks.stage_descriptions)
 
-    build_cfg: Any = hooks.prepare_config(cfg, lc) if hooks.prepare_config else cfg
     run = start_run(cfg, name=name, root=lc.root, sources=lc.sources, part_source=spec.source, part_name=spec.name, now=now)
+    build_cfg: Any = hooks.prepare_config(cfg, lc, run) if hooks.prepare_config else cfg
     logger.info("Building part %s (%s)", spec.name, spec.source)
+    consume_last_result()  # forget results from earlier renders in this process
     with run.stats.record_stage("build"):
         geometry = spec.build(build_cfg)
     if geometry is None:
+        # Legacy contract: the part rendered itself through bevel_cad.render_part; report that bundle.
+        last = consume_last_result()
+        if isinstance(last, RenderResult):
+            return last
         logger.info("build() returned None; assuming the part rendered itself (legacy contract)")
         discard_render_log_buffer()
         plan = RenderPlanner.from_run(run, viewer=viewer)

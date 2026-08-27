@@ -430,6 +430,16 @@ def _export_obj_from_glb(glb_bytes: bytes, output_path: Path, obj_settings: Any)
 
 # --- entry point ----------------------------------------------------------------------------
 
+_LAST_RESULT: Optional["RenderResult"] = None
+
+
+def consume_last_result() -> Optional["RenderResult"]:
+    """Return (and forget) the most recent :func:`render_part` result in this process."""
+    global _LAST_RESULT
+    res, _LAST_RESULT = _LAST_RESULT, None
+    return res
+
+
 
 def render_part(
     part: PartLike,
@@ -478,6 +488,8 @@ def render_part(
 
     written = {j.name: j.resolved_path for j in plan.jobs if j.resolved_path.exists()}
     logger.info("Wrote render bundle to %s/ (%d files)", plan.bundle_dir, len(written) + len(ctx.extra_written_paths))
-    return RenderResult(
+    global _LAST_RESULT
+    _LAST_RESULT = RenderResult(
         run=run, plan=plan, written=written, extra_paths=tuple(ctx.extra_written_paths), viewer_names=viewer_names
     )
+    return _LAST_RESULT
