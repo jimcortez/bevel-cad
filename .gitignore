@@ -9,3 +9,4 @@ build/
 bevel.local.yaml
 .pytest_cache/
 .ruff_cache/
+src/bevel_cad/_version.py

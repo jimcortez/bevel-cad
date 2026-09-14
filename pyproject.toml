@@ -1,10 +1,11 @@
 [project]
 name = "bevel-cad"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Render, export, and configure CadQuery parts: layered YAML config, timestamped render bundles, previews, web viewer, CLI and MCP server."
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.13"
 license = { text = "MIT" }
+authors = [{ name = "Jim Cortez", email = "jim@jimcortez.com" }]
 keywords = ["cadquery", "cad", "3d-printing", "stl", "step", "mcp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -12,10 +13,12 @@ classifiers = [
     "Intended Audience :: Manufacturing",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Multimedia :: Graphics :: 3D Modeling",
 ]
 dependencies = [
-    "cadquery>=2.6",
+    "cadquery>=2.8",  # cadquery.func.fillet2D; 2.8 requires Python >=3.11
     "trimesh>=4.0",
     "numpy>=1.26",
     "pyrender>=0.1.45",
@@ -26,28 +29,90 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-viewer = ["cadquery-web-viewer>=2.1"]
+# No `viewer` extra yet: bevel talks to cadquery-web-viewer over HTTP only, and the
+# published viewer (2.1.x) pins build123d<0.11 / OCP 7.8, which cannot coexist with
+# cadquery 2.8 (OCP 7.9). Install the viewer in its own environment for now; the extra
+# returns once cadquery-web-viewer 2.2 (build123d 0.11) is on PyPI.
 mcp = ["mcp>=2,<3"]
-dev = ["pytest>=8", "pytest-cov", "ruff", "mcp[cli]>=2,<3"]
+dev = ["pytest>=8", "pytest-cov", "ruff>=0.15", "pyright>=1.1.409", "mcp[cli]>=2,<3"]
 
 [project.scripts]
 bevel = "bevel_cad.cli:main"
 
+[project.urls]
+Homepage = "https://github.com/jimcortez/bevel-cad"
+Repository = "https://github.com/jimcortez/bevel-cad"
+Issues = "https://github.com/jimcortez/bevel-cad/issues"
+Changelog = "https://github.com/jimcortez/bevel-cad/blob/main/CHANGELOG.md"
+
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.29", "hatch-vcs>=0.5"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+# Single source of version truth: the git tag (vX.Y.Z). Untagged commits build as
+# X.Y.(Z+1).devN with no local segment so CI artifacts are always PEP 440 clean.
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+[tool.hatch.build.hooks.vcs]
+# Written at build/install time; git-ignored. bevel_cad.__version__ reads it.
+version-file = "src/bevel_cad/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bevel_cad"]
 
-[tool.uv.sources]
-cadquery-web-viewer = { path = "../cadquery-web-viewer", editable = true }
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/examples",
+    "/docs",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/pyproject.toml",
+]
+exclude = [
+    "**/renders/*",
+    "**/__pycache__",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+addopts = "--strict-markers"
 markers = ["viewer: needs a running cadquery-web-viewer"]
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bevel_cad"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+include = ["src"]
+exclude = ["src/bevel_cad/skills", "src/bevel_cad/templates"]
+# cadquery / OCP ship no stubs, and cadquery.func re-exports names pyright considers private.
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+reportPrivateImportUsage = "none"
+# First pass: surface these as warnings in CI without failing. Mostly OmegaConf
+# DictConfig/ListConfig unions and trimesh Geometry/Trimesh unions. Flip to "error"
+# as the annotations are tightened.
+reportArgumentType = "warning"
+reportAttributeAccessIssue = "warning"
+reportAssignmentType = "warning"
+reportCallIssue = "warning"
+reportGeneralTypeIssues = "warning"
+reportIndexIssue = "warning"
+reportOptionalMemberAccess = "warning"
+reportOptionalSubscript = "warning"
+reportReturnType = "warning"
