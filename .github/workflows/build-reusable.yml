@@ -62,6 +62,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libegl1 libgl1 libgles2 libgl1-mesa-dri libosmesa6 fonts-dejavu-core
+      - name: Install DejaVu fonts (macOS)
+        # OCC scans /Library/Fonts; the cask installs into ~/Library/Fonts. Best effort:
+        # without the font the text-plate tests skip rather than fail.
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          brew install --cask font-dejavu
+          sudo cp "$HOME"/Library/Fonts/DejaVu*.ttf /Library/Fonts/
+      - name: Install DejaVu fonts (Windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: choco install dejavufonts -y --no-progress
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: ${{ matrix.python-version }}
@@ -93,6 +105,7 @@ jobs:
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.12"
+          enable-cache: false  # nothing checked out here; there is no lock file to key a cache on
       - name: Install the wheel and exercise the CLI outside the source tree
         # Proves the console script and all package data (config/defaults.yaml,
         # templates/, skills/) made it into the wheel.

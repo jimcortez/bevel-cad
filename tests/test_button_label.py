@@ -12,6 +12,22 @@ from cadquery.occ_impl.shapes import Location
 from bevel_cad.config import load_layers
 from tests.conftest import load_example
 
+
+def _font_available(name: str) -> bool:
+    """True if OCC's font manager knows *name* (it silently substitutes another font otherwise)."""
+    from OCP.Font import Font_FontMgr
+    from OCP.TColStd import TColStd_SequenceOfHAsciiString
+
+    names = TColStd_SequenceOfHAsciiString()
+    Font_FontMgr.GetInstance_s().GetAvailableFontsNames(names)
+    return any(names.Value(i).ToCString() == name for i in range(1, names.Length() + 1))
+
+
+pytestmark = pytest.mark.skipif(
+    not _font_available("DejaVu Sans"),
+    reason="DejaVu Sans is not installed; OCC would substitute a font with different metrics",
+)
+
 button_label = load_example("button_label")
 ButtonLabelParams = button_label.ButtonLabelParams
 build = button_label.build

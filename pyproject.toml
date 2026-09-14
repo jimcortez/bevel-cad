@@ -37,7 +37,7 @@ mcp = ["mcp>=2,<3"]
 dev = ["pytest>=8", "pytest-cov", "ruff>=0.15", "pyright>=1.1.409", "mcp[cli]>=2,<3"]
 
 [project.scripts]
-bevel = "bevel_cad.cli:main"
+bevel = "bevel_cad.cli:run"
 
 [project.urls]
 Homepage = "https://github.com/jimcortez/bevel-cad"

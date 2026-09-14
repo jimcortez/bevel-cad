@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
@@ -322,3 +323,20 @@ def main(argv: Optional[Sequence[str]] = None, *, hooks: Optional[Hooks] = None)
             raise
         print(f"error: {type(exc).__name__}: {exc} (use -v for a traceback)", file=sys.stderr)
         return EXIT_FAILURE
+
+
+def run(argv: Optional[Sequence[str]] = None, *, hooks: Optional[Hooks] = None) -> int:
+    """Console-script entry point: :func:`main`, then a hard exit on Windows.
+
+    On Windows, OCP/VTK static destructors can raise an access violation (exit code
+    0xC0000005) while the interpreter tears down, after all work is done and all output
+    is written, turning a successful run into a failed one for callers such as
+    ``bevel mcp``. Flush everything and leave via ``os._exit`` there.
+    """
+    code = main(argv, hooks=hooks)
+    if sys.platform == "win32":
+        logging.shutdown()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(code)
+    return code

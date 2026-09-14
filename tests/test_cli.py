@@ -114,7 +114,7 @@ def test_list_describe_and_project(project, capsys):
     assert info["description"] == "A cube" and info["defaults"] == {"size": 2, "extra": {"depth": 1}}
     assert main(["project", "--json"]) == 0
     pi = _json_out(capsys)
-    assert pi["root"] == str(project.resolve()) and pi["layout"]["src_dir"].endswith("/src")
+    assert pi["root"] == str(project.resolve()) and Path(pi["layout"]["src_dir"]).name == "src"
 
 
 def test_renders_show_inspect_upload(project, capsys):

@@ -1,3 +1,3 @@
-from bevel_cad.cli import main
+from bevel_cad.cli import run
 
-raise SystemExit(main())
+raise SystemExit(run())
