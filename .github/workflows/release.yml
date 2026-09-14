@@ -1,0 +1,97 @@
+name: Release
+
+# Push an annotated tag `vX.Y.Z` on a commit that is on `main`. hatch-vcs turns
+# the tag into the package version, so nothing in the tree needs bumping.
+on:
+  push:
+    tags:
+      - "v**"
+
+permissions:
+  contents: read
+
+jobs:
+  check-tag:
+    name: Validate tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.12"
+      - name: Tag must be a PEP 440 version and reachable from main
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          uv run --no-project --with packaging python -c \
+            "import sys; from packaging.version import Version; print('version', Version(sys.argv[1]))" "$version"
+          # Dereference annotated tags to the commit they point at.
+          tag_commit=$(git rev-parse "${GITHUB_REF}^{commit}")
+          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME ($tag_commit) is not on main; refusing to release."
+            exit 1
+          fi
+
+  build:
+    needs: check-tag
+    uses: ./.github/workflows/build-reusable.yml
+    secrets: inherit
+    with:
+      ref: ${{ github.sha }}
+
+  publish:
+    name: Publish to PyPI and GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/bevel-cad/
+    permissions:
+      contents: write      # create the GitHub Release and upload assets
+      id-token: write      # PyPI Trusted Publishing + attestation signing (OIDC)
+      attestations: write  # store the build provenance attestation on GitHub
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-dist
+          path: dist
+      - name: Check the built artifacts carry the tag's version
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          ls -la dist
+          test -f "dist/bevel_cad-${version}-py3-none-any.whl"
+          test -f "dist/bevel_cad-${version}.tar.gz"
+      - name: Attest build provenance (SLSA, verifiable with `gh attestation verify`)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: Publish package distributions to PyPI
+        # Trusted Publishing: no API token. Uploads PEP 740 attestations alongside the files.
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/
+          attestations: true
+      - name: Create the GitHub Release and attach wheel and sdist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # No actions/checkout in this job; gh needs an explicit repo.
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          sdists=(dist/*.tar.gz)
+          assets=("${wheels[@]}" "${sdists[@]}")
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "::error::No .whl or .tar.gz found in dist/"
+            ls -la dist
+            exit 1
+          fi
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes || true
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber

@@ -1,0 +1,113 @@
+name: Build artifacts
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+        description: Commit SHA, branch name, or tag to check out
+
+permissions:
+  contents: read
+
+jobs:
+  build-python-package:
+    name: Build Python package (sdist and wheel)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          # hatch-vcs derives the version from git tags, so it needs full history.
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - run: uvx twine check --strict dist/*
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-dist
+          path: dist
+          retention-days: 5
+
+  test-python:
+    name: Test Python (${{ matrix.os }} / py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # cadquery>=2.8 (needed for cadquery.func.fillet2D) requires Python >=3.11;
+        # cadquery-web-viewer still pins <3.13. Widen both here and in
+        # `requires-python` together.
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12"]
+        include:
+          - os: macos-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Install headless OpenGL (EGL/Mesa) and DejaVu fonts
+        # Preview PNGs render through pyrender on EGL; text parts use "DejaVu Sans".
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libgles2 libgl1-mesa-dri libosmesa6 fonts-dejavu-core
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Sync dependencies
+        run: uv sync --locked --extra dev
+      - name: Ruff
+        if: runner.os == 'Linux'
+        run: uv run ruff check .
+      - name: Pyright
+        if: runner.os == 'Linux'
+        run: uv run pyright
+      - name: Tests
+        env:
+          # On Linux the GL stack is installed above, so a preview failure is a
+          # real regression rather than a missing-driver skip.
+          BEVEL_CI_REQUIRE_PREVIEW: ${{ runner.os == 'Linux' && '1' || '' }}
+        run: uv run pytest -v
+
+  smoke-install:
+    name: Install wheel in a clean environment
+    needs: build-python-package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-dist
+          path: dist
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          python-version: "3.12"
+      - name: Install the wheel and exercise the CLI outside the source tree
+        # Proves the console script and all package data (config/defaults.yaml,
+        # templates/, skills/) made it into the wheel.
+        run: |
+          set -euo pipefail
+          wheel=$(ls "$GITHUB_WORKSPACE"/dist/*.whl)
+          work=$(mktemp -d)
+          cd "$work"
+          uv venv .venv
+          uv pip install "$wheel"
+          export PATH="$work/.venv/bin:$PATH"
+          bevel --version
+          bevel templates --json
+          bevel skills list --json
+          bevel create smoke --template basic --yes --no-skills --json
+          cd smoke
+          bevel render smoke --skip preview --json
+          ls renders/

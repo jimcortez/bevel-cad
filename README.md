@@ -1,5 +1,10 @@
 # bevel-cad
 
+[![PyPI](https://img.shields.io/pypi/v/bevel-cad.svg)](https://pypi.org/project/bevel-cad/)
+[![Python](https://img.shields.io/pypi/pyversions/bevel-cad.svg)](https://pypi.org/project/bevel-cad/)
+[![License](https://img.shields.io/pypi/l/bevel-cad.svg)](LICENSE)
+[![CI](https://github.com/jimcortez/bevel-cad/actions/workflows/ci.yml/badge.svg)](https://github.com/jimcortez/bevel-cad/actions/workflows/ci.yml)
+
 *WARNING: project under active development and not stable at all*
 
 Render, export, and configure [CadQuery](https://cadquery.readthedocs.io/) parts.
@@ -13,7 +18,7 @@ layered YAML (OmegaConf) with `key.path=value` overrides; a project is a `bevel.
 server so AI assistants can drive it.
 
 ```bash
-pip install "bevel-cad[viewer,mcp]"        # or: uv add bevel-cad
+pip install "bevel-cad[mcp]"               # or: uv add "bevel-cad[mcp]"
 
 bevel create my_block --template basic     # scaffold a project (interactive if args omitted)
 cd my_block
@@ -86,7 +91,8 @@ A ready-made project lives in [examples/](examples/).
 
 [docs/config.md](docs/config.md) · [docs/cli.md](docs/cli.md) · [docs/parts.md](docs/parts.md) ·
 [docs/project-layout.md](docs/project-layout.md) · [docs/viewer.md](docs/viewer.md) ·
-[docs/mcp.md](docs/mcp.md) · [docs/skills.md](docs/skills.md)
+[docs/mcp.md](docs/mcp.md) · [docs/skills.md](docs/skills.md) ·
+[docs/releasing.md](docs/releasing.md)
 
 ## Extending
 
@@ -104,4 +110,5 @@ from bevel_cad.cli import CliHooks, main
 main(hooks=CliHooks(schema=MySchema, add_render_flags=add_my_flags, prepare_config=wrap_cfg))
 ```
 
-MIT licensed. Python 3.10–3.12 (the viewer pins `<3.13`).
+MIT licensed. Python 3.11–3.12 (cadquery 2.8 needs 3.11; the viewer pins `<3.13`).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the dev loop and [docs/releasing.md](docs/releasing.md) for releases.

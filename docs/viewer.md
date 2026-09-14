@@ -1,6 +1,8 @@
 # cadquery-web-viewer integration
 
-Install with `pip install "bevel-cad[viewer]"` and run the viewer separately:
+Install [cadquery-web-viewer](https://github.com/jimcortez/cadquery-web-viewer) in its own environment
+(its published release pins an OCP version that conflicts with cadquery 2.8 until viewer 2.2 ships)
+and run it separately:
 
 ```bash
 cadquery-web-viewer --host localhost --port 32323

@@ -1,0 +1,11 @@
+name: bevel-cad CodeQL config
+
+# Default queries plus security-and-quality.
+queries:
+  - uses: security-and-quality
+
+# Bundled agent-skill reference material and scaffolding templates are not
+# executed by the package; they are copied into user projects.
+paths-ignore:
+  - src/bevel_cad/skills
+  - src/bevel_cad/templates
