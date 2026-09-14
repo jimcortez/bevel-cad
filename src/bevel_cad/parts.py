@@ -22,7 +22,7 @@ from hashlib import sha1
 from importlib.metadata import entry_points
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 PART_ATTR = "__bevel_part__"
 ENTRY_POINT_GROUP = "bevel_cad.parts"

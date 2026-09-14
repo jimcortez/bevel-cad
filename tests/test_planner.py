@@ -9,7 +9,12 @@ from omegaconf import OmegaConf
 
 from bevel_cad.config import load_layers
 from bevel_cad.config.schema import PreviewSettings
-from bevel_cad.render.planner import DuplicateExportFilenameError, RenderPlanner, first_preview_settings, job_specs_from_config
+from bevel_cad.render.planner import (
+    DuplicateExportFilenameError,
+    RenderPlanner,
+    first_preview_settings,
+    job_specs_from_config,
+)
 
 
 def _plan(cfg, **kw):

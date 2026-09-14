@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from bevel_cad import scaffold
 from bevel_cad.cli import main
 
 
@@ -41,8 +40,8 @@ def test_create_basic_and_render(tmp_path, monkeypatch, clean_logging, capsys):
     assert set(d["files"]) == {"step", "glb", "config", "stats"}
     assert Path(d["bundle_dir"]).parent == root / "renders"
     # the pocket removed volume from the cube
+
     from bevel_cad.mesh.inspect import inspect_mesh_file
-    import trimesh
 
     rep = inspect_mesh_file(d["files"]["glb"])
     assert rep.watertight and rep.volume == pytest.approx(50**3 - 3.14159 * 12.5**2 * 25, rel=2e-2)

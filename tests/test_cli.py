@@ -11,7 +11,6 @@ import yaml
 
 from bevel_cad import commands
 from bevel_cad.cli import main
-
 from tests.conftest import FIXTURES
 
 

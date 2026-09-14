@@ -9,11 +9,11 @@ at Z=0 and the front (engraved) face at Z=thickness.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import cadquery as cq
-from cadquery.func import circle, clean, cut, extrude, face, fillet2D, fuse, rect, text, wire
 from cadquery import Location
+from cadquery.func import circle, clean, cut, extrude, face, fillet2D, fuse, rect, text, wire
 
 DEFAULT_FONT = "DejaVu Sans"  # ships with most Linux distros and has U+2192 (→)
 

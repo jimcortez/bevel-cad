@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
 
 import pytest
 from cadquery.func import box, circle, extrude, face, fuse, intersect, text, wire
 from cadquery.occ_impl.shapes import Location
 
-from types import SimpleNamespace
-
 from bevel_cad.config import load_layers
-
 from tests.conftest import load_example
 
 button_label = load_example("button_label")

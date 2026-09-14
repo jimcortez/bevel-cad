@@ -16,6 +16,7 @@ from typing import Union
 
 import cadquery as cq
 from cadquery.func import clean, fuse
+
 try:  # optional progress bar
     from tqdm.auto import tqdm
 except ImportError:  # pragma: no cover - exercised only without tqdm installed

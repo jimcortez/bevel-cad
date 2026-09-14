@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import logging
+import os
 import zipfile
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import patch
 
 import cadquery as cq
@@ -140,6 +139,8 @@ def test_preview_png_rendered(tmp_path, monkeypatch, clean_logging):
     try:
         res = render_part(box(5, 5, 5), cfg, name="pv")
     except Exception as exc:  # no GL context on this machine
+        if os.environ.get("BEVEL_CI_REQUIRE_PREVIEW"):
+            raise  # CI installed EGL/Mesa; a failure here is a real regression
         pytest.skip(f"offscreen rendering unavailable: {exc!r}")
     png = res.path_for("preview")
     assert png is not None and png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"

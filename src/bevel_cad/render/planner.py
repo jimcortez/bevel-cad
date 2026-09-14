@@ -9,7 +9,11 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from omegaconf import DictConfig, OmegaConf
 
 from bevel_cad.config.schema import JOB_SETTINGS_TYPES, PreviewSettings
-from bevel_cad.render.naming import DEFAULT_FILENAME_TEMPLATES, VALID_EXPORT_FORMATS, resolve_filename_template
+from bevel_cad.render.naming import (
+    DEFAULT_FILENAME_TEMPLATES,
+    VALID_EXPORT_FORMATS,
+    resolve_filename_template,
+)
 
 # Execution phases (lower runs first). Mapping order in YAML is ignored.
 _FORMAT_PHASE: Dict[str, int] = {

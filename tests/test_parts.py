@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
+from omegaconf import OmegaConf
 
 import bevel_cad
 from bevel_cad.config import ProjectLayout
 from bevel_cad.parts import InvalidPart, PartNotFound, iter_registered_parts, load_target, spec_from_callable
-from omegaconf import OmegaConf
-
 from tests.conftest import FIXTURES
 
 

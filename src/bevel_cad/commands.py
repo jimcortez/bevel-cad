@@ -17,9 +17,9 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 from omegaconf import DictConfig, OmegaConf, open_dict
 
 from bevel_cad.config import LoadedConfig, config_to_yaml, load_layers
-from bevel_cad.config.paths import ProjectLayout, find_project_root
+from bevel_cad.config.paths import ProjectLayout
 from bevel_cad.mesh.inspect import MeshReport, inspect_mesh_file
-from bevel_cad.parts import PartRef, PartSpec, iter_registered_parts, load_target
+from bevel_cad.parts import PartSpec, iter_registered_parts, load_target
 from bevel_cad.render.bundle import RenderBundle, resolve_render_bundle
 from bevel_cad.render.logbuffer import discard_render_log_buffer
 from bevel_cad.render.naming import VALID_EXPORT_FORMATS
@@ -414,12 +414,3 @@ def project_info(*, root: Optional[PathLike] = None, hooks: Optional[Hooks] = No
 
 # --- scaffolding (see bevel_cad.scaffold) -----------------------------------------------------
 
-from bevel_cad.scaffold import (  # noqa: E402
-    ScaffoldResult,
-    TemplateInfo,
-    add_part,
-    create_project,
-    install_skills,
-    list_skills,
-    list_templates,
-)

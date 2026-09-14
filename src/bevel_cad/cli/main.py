@@ -185,19 +185,19 @@ def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:
     if cmd == "list":
         parts = commands.list_parts(root=root, hooks=hooks)
 
-        def _text(items):
+        def _text1(items):
             if not items:
                 print("No parts found.")
             for p in items:
                 print(f"{p.name:32s} {p.kind:12s} {p.location}")
 
-        _emit(parts, as_json, _text)
+        _emit(parts, as_json, _text1)
         return EXIT_OK
 
     if cmd == "describe":
         info = commands.describe_part(args.name, root=root, hooks=hooks)
 
-        def _text(i):
+        def _text2(i):
             print(f"{i.name}: {i.description or '(no description)'}")
             print(f"  source:   {i.source}")
             if i.path:
@@ -209,7 +209,7 @@ def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:
                 for line in yaml.safe_dump(i.defaults, sort_keys=False).splitlines():
                     print(f"    {line}")
 
-        _emit(info, as_json, _text)
+        _emit(info, as_json, _text2)
         if args.source and info.path:
             print()
             print(Path(info.path).read_text(encoding="utf-8"))
@@ -223,19 +223,19 @@ def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:
     if cmd == "renders":
         bundles = commands.list_renders(root=root, limit=args.limit, hooks=hooks)
 
-        def _text(items):
+        def _text3(items):
             if not items:
                 print("No render bundles found.")
             for b in items:
                 print(f"{b.stem:48s} {b.created or '':20s} {len(b.files)} files{'  [png]' if b.preview else ''}")
 
-        _emit(bundles, as_json, _text)
+        _emit(bundles, as_json, _text3)
         return EXIT_OK
 
     if cmd == "show":
         info = commands.describe_render(args.bundle, root=root, hooks=hooks)
 
-        def _text(b):
+        def _text4(b):
             print(f"{b.stem}  ({b.bundle_dir})")
             print(f"  run name: {b.run_name}   created: {b.created}")
             print("  files:    " + ", ".join(b.files))
@@ -248,7 +248,7 @@ def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:
                 for line in b.log_tail.splitlines()[-10:]:
                     print(f"    {line}")
 
-        _emit(info, as_json, _text)
+        _emit(info, as_json, _text4)
         return EXIT_OK
 
     if cmd == "project":

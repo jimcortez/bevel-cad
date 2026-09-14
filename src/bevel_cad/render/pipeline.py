@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
-from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -26,8 +25,12 @@ from omegaconf import DictConfig, OmegaConf
 from bevel_cad.config.paths import resolve_output_dir
 from bevel_cad.mesh.convert import assembly_to_glb_bytes, glb_bytes_to_trimesh, solid_to_glb_bytes
 from bevel_cad.render.colors import iter_assembly_leaf_solids
-from bevel_cad.render.logbuffer import attach_render_log_buffer, discard_render_log_buffer, finalize_render_log
-from bevel_cad.render.naming import body_slug, render_bundle_stem, resolve_filename_template, slugify
+from bevel_cad.render.logbuffer import (
+    attach_render_log_buffer,
+    discard_render_log_buffer,
+    finalize_render_log,
+)
+from bevel_cad.render.naming import body_slug, render_bundle_stem, resolve_filename_template
 from bevel_cad.render.planner import ExportJob, RenderPlan, RenderPlanner, job_specs_from_config
 from bevel_cad.render.preview import render_glb_to_image
 from bevel_cad.render.stats import RenderStats

@@ -139,7 +139,6 @@ def _trimesh_scene_to_pyrender_meshes_with_poses(
         metallicFactor=0.2,
         roughnessFactor=0.8,
     )
-    result = []
     if isinstance(trimesh_scene, trimesh.Trimesh):
         try:
             pr_mesh = pyrender.Mesh.from_trimesh(trimesh_scene, material=material)
