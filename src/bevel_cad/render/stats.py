@@ -12,7 +12,7 @@ from typing import Any, Iterable, Iterator, List, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-_STAGE_DESCRIPTIONS: dict[str, str] = {}
+_STAGE_DESCRIPTIONS: dict[str, str] = {"build": "Building geometry"}
 
 _EXPORT_LABELS = {
     "stl": "Exporting STL",
