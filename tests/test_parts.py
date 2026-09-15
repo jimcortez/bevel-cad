@@ -70,3 +70,17 @@ def test_module_without_build_is_invalid(tmp_path):
     f.write_text("x = 1\n")
     with pytest.raises(InvalidPart, match="has no build"):
         load_target(str(f))
+
+
+def test_broken_provider_raises(monkeypatch):
+    from bevel_cad import parts
+
+    class _EP:
+        name, value = "broken", "nosuch.module:parts"
+
+        def load(self):
+            raise ImportError("boom")
+
+    monkeypatch.setattr(parts, "entry_points", lambda group: [_EP()] if group == parts.PROVIDER_GROUP else [])
+    with pytest.raises(parts.InvalidPart, match="provider 'broken'"):
+        parts.iter_registered_parts()

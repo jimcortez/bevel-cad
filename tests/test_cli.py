@@ -176,3 +176,113 @@ def test_dotlist_after_flags_is_accepted(project, capsys):
     assert rc == 0
     d = _json_out(capsys)
     assert yaml.safe_load((Path(d["bundle_dir"]) / f"{d['stem']}.yaml").read_text())["size"] == 2
+
+
+# --- project hooks ------------------------------------------------------------------------------
+
+
+HOOKS_MODULE = '''
+import argparse
+from dataclasses import dataclass, field
+from typing import Any, Dict
+
+from bevel_cad import BevelSchema
+from bevel_cad.commands import Hooks
+
+CALLS = []
+
+
+@dataclass
+class DemoSchema(BevelSchema):
+    widget: Dict[str, Any] = field(default_factory=dict)
+
+
+class Prepared:
+    def __init__(self, cfg, run):
+        self.cfg, self.run = cfg, run
+
+    def __getattr__(self, name):
+        return getattr(self.cfg, name)
+
+
+def _flags(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--big", action="store_true")
+    p.add_argument("--label", metavar="TEXT")
+
+
+def _overrides(args):
+    out = []
+    if args.big:
+        out.append("size=9")
+    if args.label:
+        out.append(f"rendering.name={args.label}")
+    return out
+
+
+def _prepare(cfg, loaded, run):
+    CALLS.append(("prepare", run.run_name))
+    return Prepared(cfg, run)
+
+
+HOOKS = Hooks(schema=DemoSchema, prepare_config=_prepare, add_render_flags=_flags, render_overrides=_overrides,
+              stage_descriptions={"demo.stage": "Demo stage"})
+
+
+def factory():
+    return HOOKS
+'''
+
+
+@pytest.fixture
+def hooked_project(project, monkeypatch):
+    (project / "hookmod.py").write_text(HOOKS_MODULE)
+    monkeypatch.syspath_prepend(str(project))
+    import sys
+
+    sys.modules.pop("hookmod", None)
+    text = (project / "bevel.yaml").read_text().replace("project:\n  name: demo\n", "project:\n  name: demo\n  hooks: hookmod:HOOKS\n")
+    (project / "bevel.yaml").write_text(text)
+    return project
+
+
+def test_project_hooks_apply_to_cli_render_and_hook_flags(hooked_project, capsys):
+    import hookmod
+
+    rc = main(["render", "cube", "--big", "--label", "labelled", "--skip", "glb", "--json"])
+    assert rc == 0
+    d = _json_out(capsys)
+    assert d["run_name"] == "labelled"  # hook flag -> dotlist override
+    snap = yaml.safe_load((Path(d["bundle_dir"]) / f"{d['stem']}.yaml").read_text())
+    assert snap["size"] == 9 and snap["project"]["hooks"] == "hookmod:HOOKS"
+    assert hookmod.CALLS[-1] == ("prepare", "labelled")  # prepare_config ran with the shared run
+
+
+def test_project_hooks_value_flag_survives_dotlist_hoisting(hooked_project, capsys):
+    rc = main(["render", "cube", "--label", "x", "size=4", "--skip", "glb,preview", "--json"])
+    assert rc == 0
+    d = _json_out(capsys)
+    assert d["run_name"] == "x"
+
+
+def test_project_hooks_used_by_command_layer_and_factory(hooked_project):
+    text = (hooked_project / "bevel.yaml").read_text().replace("hookmod:HOOKS", "hookmod:factory")
+    (hooked_project / "bevel.yaml").write_text(text)
+    hooks = commands.resolve_hooks(None, hooked_project)
+    assert hooks.schema.__name__ == "DemoSchema"
+    res = commands.render("cube", skip=["glb", "preview"], root=hooked_project)
+    assert res.run.run_name == "cube"
+    assert commands.resolve_hooks(commands.Hooks(), hooked_project).schema is None  # explicit hooks win
+
+
+def test_project_hooks_bad_declaration_is_an_error(hooked_project, capsys):
+    text = (hooked_project / "bevel.yaml").read_text().replace("hookmod:HOOKS", "hookmod:MISSING")
+    (hooked_project / "bevel.yaml").write_text(text)
+    assert main(["list"]) == 1
+    assert "no attribute 'MISSING'" in capsys.readouterr().err
+    (hooked_project / "bevel.yaml").write_text(text.replace("hookmod:MISSING", "nosuchmod:HOOKS"))
+    assert main(["list"]) == 1
+    assert "cannot import 'nosuchmod'" in capsys.readouterr().err
+
+
+def test_no_project_hooks_declared_is_plain_hooks(project):
+    assert commands.resolve_hooks(None, project).schema is None

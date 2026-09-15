@@ -35,6 +35,8 @@ except ImportError:  # pragma: no cover - exercised only without tqdm installed
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["assert_single_solid", "fuse_part_solids", "fuse_solids_map_reduce", "release_shapes"]
+
 _PartT = Union[cq.Workplane, cq.Solid, cq.Compound, cq.Assembly]
 
 
@@ -44,7 +46,7 @@ def _solid_count(shape) -> int:
     return 1
 
 
-def _release() -> None:
+def release_shapes() -> None:
     """Drop refs that OCC keeps alive via Python wrappers.
 
     Boolean fuse/clean leave large intermediate B-rep shapes referenced until
@@ -54,7 +56,7 @@ def _release() -> None:
     gc.collect()
 
 
-def _assert_single_solid(shape, *, name: str) -> None:
+def assert_single_solid(shape, *, name: str) -> None:
     """Raise if a fused result is not exactly one connected solid.
 
     A multi-lump result means the inputs did not actually touch, so the fuse
@@ -69,7 +71,7 @@ def _assert_single_solid(shape, *, name: str) -> None:
         )
 
 
-def _fuse_solids_map_reduce(solids: list, *, name: str, show_progress: bool = True):
+def fuse_solids_map_reduce(solids: list, *, name: str, show_progress: bool = True):
     """
     Fuse many solids in map-reduce rounds: pair neighbors, then pair results.
 
@@ -136,14 +138,14 @@ def fuse_part_solids(part: _PartT, *, name: str = "part") -> _PartT:
         return solids[0] if n == 1 else part
 
     logger.info("Fusing %d solids into one body for %s...", n, name)
-    merged = _fuse_solids_map_reduce(solids, name=name)
+    merged = fuse_solids_map_reduce(solids, name=name)
 
     logger.info(
         "Fuse complete for %s: %d solid(s) remaining.",
         name,
         _solid_count(merged),
     )
-    _assert_single_solid(merged, name=name)
+    assert_single_solid(merged, name=name)
 
     if wrapper is not None:
         return wrapper.newObject([merged])

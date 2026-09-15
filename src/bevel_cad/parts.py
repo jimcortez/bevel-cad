@@ -226,11 +226,8 @@ def _provider_refs() -> List[PartRef]:
     for ep in entry_points(group=PROVIDER_GROUP):
         try:
             mapping = ep.load()()
-        except Exception as exc:  # noqa: BLE001 - a broken provider must not hide the others
-            import logging
-
-            logging.getLogger(__name__).warning("bevel provider %s failed: %s", ep.name, exc)
-            continue
+        except Exception as exc:
+            raise InvalidPart(f"bevel provider {ep.name!r} ({ep.value}) failed: {exc}") from exc
         for pname, value in dict(mapping).items():
             src = f"provider:{ep.name}:{pname}"
             refs.append(

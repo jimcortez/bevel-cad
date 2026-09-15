@@ -16,8 +16,8 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
 from omegaconf import DictConfig, OmegaConf, open_dict
 
-from bevel_cad.config import LoadedConfig, config_to_yaml, load_layers
-from bevel_cad.config.paths import ProjectLayout
+from bevel_cad.config import ConfigError, LoadedConfig, config_to_yaml, load_layers
+from bevel_cad.config.paths import PROJECT_FILE, ProjectLayout, find_project_root
 from bevel_cad.mesh.inspect import MeshReport, inspect_mesh_file
 from bevel_cad.parts import PartSpec, iter_registered_parts, load_target
 from bevel_cad.render.bundle import RenderBundle, resolve_render_bundle
@@ -34,18 +34,83 @@ PathLike = Union[str, Path]
 
 @dataclass
 class Hooks:
-    """Extension points for projects that wrap bevel (e.g. led_knots)."""
+    """
+    Extension points for projects built on bevel.
+
+    A project declares its hooks in ``bevel.yaml``::
+
+        project:
+          hooks: my_project.bevel_hooks:HOOKS   # a Hooks instance, or a zero-arg factory
+
+    and every command (CLI, MCP, :mod:`bevel_cad.commands`) picks them up through
+    :func:`resolve_hooks` whenever the caller passes ``hooks=None``.
+    """
 
     schema: Optional[type] = None
     project_config: Union[str, Path, None] = "auto"
     resolve_target: Optional[Callable[[DictConfig, Optional[ProjectLayout]], Optional[PartSpec]]] = None
     prepare_config: Optional[Callable[[DictConfig, LoadedConfig, Any], Any]] = None  # (cfg, loaded, run) -> build cfg
-    add_render_flags: Optional[Callable[[Any], None]] = None
+    add_render_flags: Optional[Callable[[Any], None]] = None  # (argparse render sub-parser) -> None
+    render_overrides: Optional[Callable[[Any], Sequence[str]]] = None  # (parsed args) -> dotlist entries
     stage_descriptions: Mapping[str, str] = field(default_factory=dict)
 
 
 class CommandError(RuntimeError):
     """A user-facing failure (bad target, bad config, viewer down, ...)."""
+
+
+# --- project hooks -----------------------------------------------------------------------------
+
+
+def _project_hooks_target(root: Optional[PathLike]) -> Optional[str]:
+    """The raw ``project.hooks`` string of the project file for ``root`` (no schema, no merge)."""
+    import yaml
+
+    project_root = Path(root).resolve() if root else find_project_root()
+    if project_root is None:
+        return None
+    project_file = project_root / PROJECT_FILE
+    if not project_file.is_file():
+        return None
+    data = yaml.safe_load(project_file.read_text(encoding="utf-8")) or {}
+    project = data.get("project") if isinstance(data, Mapping) else None
+    target = project.get("hooks") if isinstance(project, Mapping) else None
+    return str(target).strip() if target else None
+
+
+def load_project_hooks(root: Optional[PathLike] = None) -> Hooks:
+    """
+    Import the :class:`Hooks` a project declares as ``project.hooks`` (``pkg.module:ATTR``).
+
+    ``ATTR`` is a ``Hooks`` instance or a zero-argument callable returning one. Projects without
+    a declaration get a plain ``Hooks()``. A declaration that cannot be imported or that resolves
+    to something else is a :class:`ConfigError` -- never silently ignored.
+    """
+    target = _project_hooks_target(root)
+    if not target:
+        return Hooks()
+    import importlib
+
+    mod_path, sep, attr = target.partition(":")
+    if not sep or not attr:
+        raise ConfigError(f"project.hooks must be 'package.module:ATTR' (got {target!r})")
+    try:
+        module = importlib.import_module(mod_path)
+    except ImportError as exc:
+        raise ConfigError(f"project.hooks {target!r}: cannot import {mod_path!r}: {exc}") from exc
+    obj = getattr(module, attr, None)
+    if obj is None:
+        raise ConfigError(f"project.hooks {target!r}: module {mod_path!r} has no attribute {attr!r}")
+    if callable(obj) and not isinstance(obj, Hooks):
+        obj = obj()
+    if not isinstance(obj, Hooks):
+        raise ConfigError(f"project.hooks {target!r} is {type(obj).__name__}, expected bevel_cad.commands.Hooks")
+    return obj
+
+
+def resolve_hooks(hooks: Optional[Hooks], root: Optional[PathLike] = None) -> Hooks:
+    """``hooks`` when given, otherwise the hooks the project at ``root`` (or cwd) declares."""
+    return hooks if hooks is not None else load_project_hooks(root)
 
 
 # --- config resolution -------------------------------------------------------------------------
@@ -79,7 +144,7 @@ def resolve_target_and_config(
     project config for the name) is appended as the last ``--config`` layer, and its ``part:``
     key names the code to run.
     """
-    hooks = hooks or Hooks()
+    hooks = resolve_hooks(hooks, root)
     files: List[Path] = [Path(c) for c in configs]
     dotlist = list(overrides)
     code_target: Optional[str] = None
@@ -162,7 +227,7 @@ def render(
     now: Optional[datetime] = None,
 ) -> RenderResult:
     """Build the part and write its render bundle. Returns a :class:`RenderResult`."""
-    hooks = hooks or Hooks()
+    hooks = resolve_hooks(hooks, root)
     dots = list(overrides)
     if out:
         dots.append(f"rendering.output_dir={out}")
@@ -254,7 +319,7 @@ def upload(
 
 
 def _layout(root: Optional[PathLike], hooks: Optional[Hooks] = None) -> Optional[ProjectLayout]:
-    hooks = hooks or Hooks()
+    hooks = resolve_hooks(hooks, root)
     lc = load_layers(schema=hooks.schema, project_config=hooks.project_config, root=root, apply_viewer_env_vars=False)
     return lc.layout
 
@@ -397,7 +462,7 @@ def describe_render(bundle: PathLike, *, root: Optional[PathLike] = None, hooks:
 
 def project_info(*, root: Optional[PathLike] = None, hooks: Optional[Hooks] = None) -> Dict[str, Any]:
     """Root, layout, and the resolved project-level config."""
-    hooks = hooks or Hooks()
+    hooks = resolve_hooks(hooks, root)
     lc = load_layers(schema=hooks.schema, project_config=hooks.project_config, root=root, apply_viewer_env_vars=False)
     layout = lc.layout
     return {

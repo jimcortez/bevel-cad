@@ -146,6 +146,7 @@ class ProjectConfig:
     description: Optional[str] = None
     configs_dir: Any = "configs"  # str or list[str]
     src_dir: str = "src"
+    hooks: Optional[str] = None  # "package.module:ATTR" -> bevel_cad.commands.Hooks (see load_project_hooks)
 
 
 @dataclass

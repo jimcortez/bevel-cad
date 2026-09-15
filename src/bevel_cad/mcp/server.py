@@ -157,8 +157,8 @@ def create_server(
     in_process_render: bool = False,
 ) -> MCPServer:
     """Build the MCPServer. ``in_process_render=True`` runs renders in this process (tests)."""
-    hooks = hooks or Hooks()
     server_root = Path(root).resolve() if root else None
+    hooks = commands.resolve_hooks(hooks, server_root)
     mcp = MCPServer("bevel", instructions=INSTRUCTIONS, version=__version__)
 
     # --- project / parts --------------------------------------------------------------------

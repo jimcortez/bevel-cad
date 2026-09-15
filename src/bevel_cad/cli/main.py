@@ -160,6 +160,8 @@ def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:
 
     if cmd == "render":
         target, dots = _split_positionals(args.items)
+        if hooks.render_overrides:
+            dots += [str(d) for d in hooks.render_overrides(args)]
         res = commands.render(
             target, configs=args.config, overrides=dots, name=args.name, out=args.out,
             only=_split_csv(args.only), skip=_split_csv(args.skip), viewer=args.viewer, root=root, hooks=hooks,
@@ -270,13 +272,22 @@ def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:
     return EXIT_USAGE
 
 
-_VALUE_OPTIONS = {"-c", "--config", "--name", "--out", "--only", "--skip", "--root", "--limit", "--dir",
-                  "--description", "--format", "--template", "--param", "--to", "--only", "--host", "--port",
-                  "--transport", "--render-timeout"}
 _DOTLIST_COMMANDS = {"render", "config", "upload"}
 
 
-def hoist_dotlist(argv: List[str]) -> List[str]:
+def value_options(parser: argparse.ArgumentParser) -> set:
+    """Option strings of every sub-command that consume a value (``--name N``), hook-added ones included."""
+    opts: set = set()
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for sub in action.choices.values():
+                for a in sub._actions:
+                    if a.option_strings and a.nargs != 0:
+                        opts.update(a.option_strings)
+    return opts
+
+
+def hoist_dotlist(argv: List[str], *, value_opts: Optional[set] = None) -> List[str]:
     """Move ``KEY=VALUE`` tokens next to the positionals so they may appear after flags
     (argparse cannot intermix positionals and optionals with sub-parsers)."""
     if not argv:
@@ -287,6 +298,8 @@ def hoist_dotlist(argv: List[str]) -> List[str]:
         return argv
     if argv[cmd_idx] not in _DOTLIST_COMMANDS:
         return argv
+    if value_opts is None:
+        value_opts = value_options(build_parser())
     head, rest = argv[: cmd_idx + 1], argv[cmd_idx + 1 :]
     positionals: List[str] = []
     others: List[str] = []
@@ -297,17 +310,32 @@ def hoist_dotlist(argv: List[str]) -> List[str]:
             expect_value = False
         elif tok.startswith("-"):
             others.append(tok)
-            expect_value = tok in _VALUE_OPTIONS
+            expect_value = tok in value_opts
         else:
             positionals.append(tok)  # target or KEY=VALUE, wherever it appears
     return head + positionals + others
 
 
+def _root_from_argv(argv: Sequence[str]) -> Optional[str]:
+    """``--root DIR`` / ``--root=DIR`` wherever it appears (needed before the real parse)."""
+    it = iter(argv)
+    for tok in it:
+        if tok == "--root":
+            return next(it, None)
+        if tok.startswith("--root="):
+            return tok.split("=", 1)[1]
+    return None
+
+
 def main(argv: Optional[Sequence[str]] = None, *, hooks: Optional[Hooks] = None) -> int:
-    hooks = hooks or Hooks()
-    parser = build_parser(hooks=hooks)
     raw = list(argv) if argv is not None else sys.argv[1:]
-    args = parser.parse_args(hoist_dotlist(raw))
+    try:
+        hooks = commands.resolve_hooks(hooks, _root_from_argv(raw))
+    except Exception as exc:  # noqa: BLE001 - a broken project.hooks declaration is a usage error
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
+    parser = build_parser(hooks=hooks)
+    args = parser.parse_args(hoist_dotlist(raw, value_opts=value_options(parser)))
     if not args.command:
         parser.print_help()
         return EXIT_USAGE
