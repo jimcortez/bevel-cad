@@ -13,11 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
-from bevel_cad.render.naming import DEFAULT_FILENAME_TEMPLATES, VALID_EXPORT_FORMATS
-
 __all__ = [
-    "DEFAULT_FILENAME_TEMPLATES",
-    "VALID_EXPORT_FORMATS",
     "JOB_SETTINGS_TYPES",
     "BevelSchema",
     "ObjSettings",
@@ -145,7 +141,7 @@ class ProjectConfig:
     name: Optional[str] = None
     description: Optional[str] = None
     configs_dir: Any = "configs"  # str or list[str]
-    src_dir: str = "src"
+    src_dir: Optional[str] = "src"  # null: no project source files (parts come from entry points / providers)
     hooks: Optional[str] = None  # "package.module:ATTR" -> bevel_cad.commands.Hooks (see load_project_hooks)
 
 

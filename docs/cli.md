@@ -28,6 +28,9 @@ bevel mcp [--transport stdio|streamable-http] [--host H] [--port P]
 
 Positionals after the target that contain `=` are dotlist overrides.
 
+A project's `project.hooks` (see [config.md](config.md#project-hooks)) may add flags to
+`bevel render`; `bevel render --help` inside that project lists them.
+
 `--only` enables exactly the listed formats (plus `config` and `stats`); `--skip` disables the
 listed ones. Both accept format names (`stl`) or job names (`iso`).
 

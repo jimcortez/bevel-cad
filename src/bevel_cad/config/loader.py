@@ -11,23 +11,20 @@ Rules:
   ``cfg.get("key", default)`` for optional free-form keys;
 * the ``project`` / ``rendering`` / ``viewer`` blocks are typed and validated;
   every other top-level key is free-form;
-* legacy led_knots-style layers (``server:`` block, list-form
-  ``rendering.exports``) are normalised transparently.
+* there is exactly one accepted shape per block: a ``server:`` block or a list-form
+  ``rendering.exports`` is a :class:`ConfigError` naming the current key.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 import yaml
 from omegaconf import DictConfig, ListConfig, OmegaConf
-
-from bevel_cad.render.naming import DEFAULT_FILENAME_TEMPLATES, VALID_EXPORT_FORMATS, slugify
 
 from .paths import LOCAL_FILE, PROJECT_FILE, ProjectLayout, find_project_root, user_config_path
 from .schema import BevelSchema
@@ -43,10 +40,6 @@ _VIEWER_ENV_MAP = {
     "color_edges": "CADQUERY_WEB_VIEWER_COLOR_EDGES",
     "color_vertices": "CADQUERY_WEB_VIEWER_COLOR_VERTICES",
 }
-
-# Keys from the pre-bevel export schema that no longer mean anything.
-_DROPPED_EXPORT_KEYS = ("stl_cache", "dpi", "mesh_tolerance", "mesh_angular_tolerance")
-
 
 class ConfigError(ValueError):
     """Raised for invalid or unloadable configuration."""
@@ -72,81 +65,23 @@ class LoadedConfig:
 # --- legacy normalisation -----------------------------------------------------------------
 
 
-def _exports_list_to_dict(entries: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
-    for entry in entries:
-        job = dict(entry or {})
-        fmt = str(job.get("format", "")).strip().lower()
-        if fmt not in VALID_EXPORT_FORMATS:
-            raise ConfigError(f"rendering.exports entry has unknown format {fmt!r}")
-        filename = job.get("filename") or DEFAULT_FILENAME_TEMPLATES[fmt]
-        key = fmt if filename == DEFAULT_FILENAME_TEMPLATES[fmt] else slugify(str(filename)) or fmt
-        if key in out:
-            raise ConfigError(f"rendering.exports has two entries resolving to job {key!r}")
-        job.pop("format", None)
-        if filename == DEFAULT_FILENAME_TEMPLATES[fmt]:
-            job.pop("filename", None)
-        if key != fmt:
-            job["format"] = fmt
-        out[key] = job
-    return out
-
-
 def normalize_layer(data: Any, *, source: str = "<config>") -> Dict[str, Any]:
-    """Convert legacy shapes to the current schema. Returns a new plain dict."""
+    """Check a raw YAML layer's shape and return it as a plain dict."""
     if data is None:
         return {}
     if not isinstance(data, Mapping):
         raise ConfigError(f"{source}: top level must be a mapping, got {type(data).__name__}")
     out: Dict[str, Any] = dict(data)
-
-    # server: {protocol, texture, color_*, viewer: {...}}  ->  viewer: {...}
-    server = out.pop("server", None)
-    if isinstance(server, Mapping):
-        viewer: Dict[str, Any] = dict(out.get("viewer") or {})
-        style: Dict[str, Any] = dict(viewer.get("style") or {})
-        for k in ("protocol", "texture", "color_faces", "color_edges", "color_vertices"):
-            if k in server:
-                style[k] = server[k]
-        sv = server.get("viewer") or {}
-        remote = sv.get("remote") or {}
-        for k in ("host", "port", "upload_timeout", "post_timeout"):
-            if k in sv:
-                viewer[k] = sv[k]
-            elif k in remote:
-                viewer[k] = remote[k]
-        if "tessellation_tolerance" in sv:
-            viewer["tolerance"] = sv["tessellation_tolerance"]
-        if "tessellation_angular_tolerance" in sv:
-            viewer["angular_tolerance"] = sv["tessellation_angular_tolerance"]
-        if style:
-            viewer["style"] = style
-        out["viewer"] = viewer
-        warnings.warn(f"{source}: 'server:' block is deprecated; use 'viewer:'", DeprecationWarning, stacklevel=3)
-
+    if "server" in out:
+        raise ConfigError(f"{source}: the 'server:' block was renamed 'viewer:' (styling keys go under viewer.style)")
     rendering = out.get("rendering")
     if isinstance(rendering, Mapping):
-        rendering = dict(rendering)
         exports = rendering.get("exports")
         if isinstance(exports, (list, tuple, ListConfig)):
-            rendering["exports"] = _exports_list_to_dict(list(exports))
-            warnings.warn(
-                f"{source}: list-form rendering.exports is deprecated; use a mapping keyed by job name",
-                DeprecationWarning,
-                stacklevel=3,
+            raise ConfigError(
+                f"{source}: rendering.exports must be a mapping keyed by job name "
+                "(e.g. 'stl: {enabled: true}'), not a list"
             )
-        exports = rendering.get("exports")
-        if isinstance(exports, Mapping):
-            cleaned: Dict[str, Any] = {}
-            for key, job in exports.items():
-                job = dict(job or {})
-                for dk in _DROPPED_EXPORT_KEYS:
-                    if dk in job:
-                        job.pop(dk)
-                        logger.debug("%s: ignoring obsolete export key %s.%s", source, key, dk)
-                cleaned[str(key)] = job
-            rendering["exports"] = cleaned
-        out["rendering"] = rendering
     return out
 
 
@@ -225,10 +160,6 @@ def load_layers(
     if project_path is not None:
         add(_read_yaml(project_path), "project", project_path)
         local_path = project_path.with_name(LOCAL_FILE)
-        if not local_path.is_file() and project_path.name != PROJECT_FILE:
-            # led_knots-style: config.yaml + config.local.yaml
-            alt = project_path.with_name(f"{project_path.stem}.local{project_path.suffix}")
-            local_path = alt if alt.is_file() else local_path
         if local_path.is_file():
             add(_read_yaml(local_path), "local", local_path)
 

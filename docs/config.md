@@ -26,7 +26,8 @@ project:
   name: my_project
   description: ...
   configs_dir: configs      # or a list
-  src_dir: src
+  src_dir: src              # null: no project sources (parts come from entry points / providers)
+  hooks: null               # "package.module:ATTR" -> a bevel_cad.commands.Hooks (see below)
 
 rendering:
   name: null                # run name; falls back to the part name
@@ -85,8 +86,31 @@ cfg = load_config(schema=MySchema, files=["configs/x.yaml"])
 
 Validation in `__post_init__` runs when you call `OmegaConf.to_object(cfg.output_bounds)`.
 
-## Legacy shapes
+## Project hooks
 
-A `server:` block (`server.viewer.host`, `server.color_faces`, …) and list-form
-`rendering.exports` (`- format: stl`) are converted on load with a `DeprecationWarning`, so
-older snapshots stay usable.
+A project built on bevel can extend every command by declaring hooks in `bevel.yaml`:
+
+```yaml
+project:
+  hooks: my_project.bevel_hooks:HOOKS
+```
+
+`ATTR` is a `bevel_cad.commands.Hooks` instance (or a zero-argument callable returning one).
+Whenever the CLI, the MCP server, or `bevel_cad.commands` is called without explicit
+`hooks`, the project's hooks are imported and used; a declaration that fails to import is a
+`ConfigError`, never ignored. Hooks can supply:
+
+| field | purpose |
+|---|---|
+| `schema` | a `BevelSchema` subclass every layer is validated against |
+| `prepare_config(cfg, loaded, run)` | turn the merged config into whatever `build()` should receive (a typed wrapper, say) — it shares the run's stats and bundle |
+| `resolve_target(cfg, layout)` | pick the part when no target and no `part:` key is given |
+| `add_render_flags(parser)` / `render_overrides(args)` | add flags to `bevel render` and map them to dotlist overrides |
+| `stage_descriptions` | readable names for `stats.record_stage(...)` entries in the CSV/log |
+
+## One shape per block
+
+Older layouts (`server:` instead of `viewer:`, list-form `rendering.exports`) are rejected
+with a `ConfigError` naming the current key; nothing is converted on load. The local override
+file is always `bevel.local.yaml` next to the project file, also when `project_config` names a
+file with another name.

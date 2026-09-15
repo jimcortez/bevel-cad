@@ -14,7 +14,8 @@ def build(cfg): ...
 - `schema` — optional dataclass extending `BevelSchema` for strict validation of your blocks.
 - Accepted return types: `cq.Assembly` (named children → per-body STLs and viewer colours),
   `cq.Shape`, `cq.Workplane`, `trimesh.Trimesh`, anything with `.wrapped`.
-- Returning `None` means "the part rendered itself" (legacy contract); nothing is written.
+- `build` must return the geometry; returning `None` is an error. Anything a part needs to
+  do before export (fusing, orienting, segmenting) happens inside `build`.
 
 ## Discovery
 

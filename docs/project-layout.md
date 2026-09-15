@@ -14,6 +14,10 @@ my_project/
 
 - Root discovery: walk up from cwd for `bevel.yaml`; `$BEVEL_ROOT` or `--root` override.
 - `project.configs_dir` may be a list (e.g. `[knot_configs, part_configs]`).
+- `project.src_dir: null` declares a project with no source directory: its parts come from
+  the `bevel_cad.parts` / `bevel_cad.providers` entry points of an installed package.
+- `project.hooks` names a `Hooks` object that customises every command for the project
+  (schema, config wrapper, extra render flags) — see [config.md](config.md#project-hooks).
 - `rendering.output_dir` resolves against the root (against cwd when there is no project).
 - `bevel create NAME` scaffolds all of this plus a first part from a template;
   `bevel add NAME` adds another config/source pair.

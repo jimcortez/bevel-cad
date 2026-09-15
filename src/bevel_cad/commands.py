@@ -21,10 +21,8 @@ from bevel_cad.config.paths import PROJECT_FILE, ProjectLayout, find_project_roo
 from bevel_cad.mesh.inspect import MeshReport, inspect_mesh_file
 from bevel_cad.parts import PartSpec, iter_registered_parts, load_target
 from bevel_cad.render.bundle import RenderBundle, resolve_render_bundle
-from bevel_cad.render.logbuffer import discard_render_log_buffer
 from bevel_cad.render.naming import VALID_EXPORT_FORMATS
-from bevel_cad.render.pipeline import RenderResult, consume_last_result, render_part, start_run
-from bevel_cad.render.planner import RenderPlanner
+from bevel_cad.render.pipeline import RenderResult, render_part, start_run
 from bevel_cad.render.stats import read_stats_csv
 
 logger = logging.getLogger(__name__)
@@ -244,18 +242,10 @@ def render(
     run = start_run(cfg, name=name, root=lc.root, sources=lc.sources, part_source=spec.source, part_name=spec.name, now=now)
     build_cfg: Any = hooks.prepare_config(cfg, lc, run) if hooks.prepare_config else cfg
     logger.info("Building part %s (%s)", spec.name, spec.source)
-    consume_last_result()  # forget results from earlier renders in this process
     with run.stats.record_stage("build"):
         geometry = spec.build(build_cfg)
     if geometry is None:
-        # Legacy contract: the part rendered itself through bevel_cad.render_part; report that bundle.
-        last = consume_last_result()
-        if isinstance(last, RenderResult):
-            return last
-        logger.info("build() returned None; assuming the part rendered itself (legacy contract)")
-        discard_render_log_buffer()
-        plan = RenderPlanner.from_run(run, viewer=viewer)
-        return RenderResult(run=run, plan=plan, written={}, extra_paths=(), viewer_names=())
+        raise CommandError(f"{spec.source}: build() returned None; a part must return its geometry")
     try:
         return render_part(geometry, run, viewer=viewer)
     except Exception as exc:
@@ -469,7 +459,7 @@ def project_info(*, root: Optional[PathLike] = None, hooks: Optional[Hooks] = No
         "root": str(lc.root) if lc.root else None,
         "layout": None if layout is None else {
             "configs_dirs": [str(p) for p in layout.configs_dirs],
-            "src_dir": str(layout.src_dir),
+            "src_dir": str(layout.src_dir) if layout.src_dir is not None else None,
             "renders_dir": str(layout.renders_dir),
         },
         "sources": [str(s) for s in lc.sources],

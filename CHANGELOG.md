@@ -6,6 +6,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Project-scoped hooks: `project.hooks: package.module:ATTR` in `bevel.yaml` is picked up by
+  the CLI, the MCP server, and `bevel_cad.commands` whenever no hooks are passed explicitly.
+- `Hooks.render_overrides` maps flags added through `Hooks.add_render_flags` to dotlist
+  overrides (those flags were parsed and dropped before).
+- `project.src_dir: null` for projects whose parts come only from entry points / providers.
+- Public fuse API: `bevel_cad.mesh.fuse_solids_map_reduce`, `assert_single_solid`,
+  `release_shapes`; `bevel_cad.mesh` re-exports the mesh helpers.
+
+### Changed
+
+- `build()` must return geometry; returning `None` is a `CommandError`. The "part rendered
+  itself" contract and the module-global last-result bookkeeping are gone.
+- Configuration is strict about shape: a `server:` block or a list-form `rendering.exports`
+  raises `ConfigError` instead of being converted with a `DeprecationWarning`; obsolete export
+  keys are no longer silently dropped.
+- The local override file is always `bevel.local.yaml`; the `config.yaml` /
+  `config.local.yaml` special case is gone.
+- A provider entry point that fails to load raises `InvalidPart` instead of logging a warning.
+
 ## [0.1.0] - 2026-09-14
 
 ### Added

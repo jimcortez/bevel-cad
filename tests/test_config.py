@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
 import pytest
@@ -56,48 +55,31 @@ def test_typed_validation_error(tmp_path):
         load_layers(project_config=None, user_config=False, overrides={"rendering": {"unknown_key": 1}})
 
 
-def test_legacy_server_block_and_list_exports_normalised():
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        out = normalize_layer(
-            {
-                "server": {
-                    "color_faces": "#ffbf00",
-                    "viewer": {"host": "h", "port": 1, "tessellation_tolerance": 0.2},
-                },
-                "rendering": {
-                    "exports": [
-                        {"format": "stl", "enabled": True, "filename": "{name}.stl", "stl_ascii": False},
-                        {"format": "preview", "filename": "{name}-iso.png", "azimuth": 135, "stl_cache": "x", "dpi": 5},
-                        {"format": "obj", "enabled": False},
-                    ]
-                },
-            }
-        )
-    assert out["viewer"] == {"host": "h", "port": 1, "tolerance": 0.2, "style": {"color_faces": "#ffbf00"}}
-    ex = out["rendering"]["exports"]
-    assert ex["stl"] == {"enabled": True, "stl_ascii": False}
-    assert ex["name-iso-png"] == {"format": "preview", "filename": "{name}-iso.png", "azimuth": 135}
-    assert ex["obj"] == {"enabled": False}
+def test_server_block_is_rejected():
+    with pytest.raises(ConfigError, match="renamed 'viewer:'"):
+        normalize_layer({"server": {"viewer": {"host": "h"}}}, source="x.yaml")
 
 
-def test_legacy_layer_loads_and_merges(tmp_path):
-    f = _write(
-        tmp_path / "legacy.yaml",
-        "server:\n  viewer:\n    host: testhost\n    port: 42424\n"
-        "rendering:\n  exports:\n    - format: glb\n      enabled: false\n",
-    )
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        lc = load_layers(files=[f], project_config=None, user_config=False)
-    assert lc.cfg.viewer.host == "testhost" and lc.cfg.viewer.port == 42424
-    assert lc.cfg.rendering.exports.glb.enabled is False
-    assert lc.cfg.rendering.exports.stl.enabled is True  # defaults survive
+def test_list_form_exports_are_rejected(tmp_path):
+    f = _write(tmp_path / "old.yaml", "rendering:\n  exports:\n    - format: glb\n      enabled: false\n")
+    with pytest.raises(ConfigError, match="rendering.exports must be a mapping"):
+        load_layers(files=[f], project_config=None, user_config=False)
 
 
-def test_explicit_project_config_with_local_sibling(tmp_path):
-    p = _write(tmp_path / "config.yaml", "widget: {a: 1}\n")
-    _write(tmp_path / "config.local.yaml", "widget: {a: 2}\n")
+def test_unknown_export_job_key_is_rejected(tmp_path):
+    f = _write(tmp_path / "odd.yaml", "rendering:\n  exports:\n    stl:\n      stl_cache: yes\n")
+    from bevel_cad.render.pipeline import start_run
+    from bevel_cad.render.planner import RenderPlanner
+
+    lc = load_layers(files=[f], project_config=None, user_config=False)
+    with pytest.raises(Exception, match="stl_cache"):
+        RenderPlanner.from_run(start_run(lc.cfg, root=tmp_path))
+
+
+def test_explicit_project_config_uses_bevel_local_sibling(tmp_path):
+    p = _write(tmp_path / "custom.yaml", "widget: {a: 1}\n")
+    _write(tmp_path / "custom.local.yaml", "widget: {a: 3}\n")  # not a recognised local file
+    _write(tmp_path / "bevel.local.yaml", "widget: {a: 2}\n")
     lc = load_layers(project_config=p, user_config=False)
     assert lc.cfg.widget.a == 2
     assert lc.root == tmp_path.resolve()

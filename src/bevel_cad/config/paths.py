@@ -46,7 +46,7 @@ class ProjectLayout:
 
     root: Path
     configs_dirs: Tuple[Path, ...]
-    src_dir: Path
+    src_dir: Optional[Path]  # None: the project declares no source dir (project.src_dir: null)
     renders_dir: Path
 
     @classmethod
@@ -54,12 +54,12 @@ class ProjectLayout:
         root = Path(root).resolve()
         project = getattr(cfg, "project", None)
         configs = _as_list(getattr(project, "configs_dir", "configs")) or ("configs",)
-        src = str(getattr(project, "src_dir", "src") or "src")
+        src = getattr(project, "src_dir", "src")
         out = str(getattr(getattr(cfg, "rendering", None), "output_dir", "renders") or "renders")
         return cls(
             root=root,
             configs_dirs=tuple(_resolve(root, c) for c in configs),
-            src_dir=_resolve(root, src),
+            src_dir=_resolve(root, str(src)) if src not in (None, "") else None,
             renders_dir=_resolve(root, out),
         )
 
@@ -72,6 +72,8 @@ class ProjectLayout:
         return None
 
     def source_file_for(self, name: str) -> Optional[Path]:
+        if self.src_dir is None:
+            return None
         p = self.src_dir / f"{name}.py"
         if p.is_file():
             return p
@@ -81,7 +83,7 @@ class ProjectLayout:
         return None
 
     def iter_source_names(self) -> Sequence[str]:
-        if not self.src_dir.is_dir():
+        if self.src_dir is None or not self.src_dir.is_dir():
             return ()
         names = []
         for p in sorted(self.src_dir.iterdir()):

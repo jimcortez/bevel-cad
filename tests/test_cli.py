@@ -137,22 +137,21 @@ def test_renders_show_inspect_upload(project, capsys):
     assert show.call_args[0][0] == Path(d["files"]["glb"]).read_bytes()
 
 
-def test_legacy_build_returning_none(project, capsys):
-    (project / "src" / "legacy.py").write_text("def build(cfg):\n    return None\n")
-    assert main(["render", "legacy", "--json"]) == 0
-    d = _json_out(capsys)
-    assert d["files"] == {} and d["bundle_dir"] is None
+def test_build_returning_none_is_an_error(project, capsys):
+    (project / "src" / "noreturn.py").write_text("def build(cfg):\n    return None\n")
+    assert main(["render", "noreturn", "--json"]) == 1
+    assert "build() returned None" in capsys.readouterr().err
     assert not (project / "renders").exists()
 
 
-def test_legacy_build_that_renders_itself_reports_its_bundle(project, capsys):
-    (project / "src" / "selfrender.py").write_text(
-        "from cadquery.func import box\nimport bevel_cad\n\n"
-        "def build(cfg):\n    bevel_cad.render_part(box(1, 1, 1), cfg, name='inner')\n    return None\n"
-    )
-    assert main(["render", "selfrender", "--json"]) == 0
-    d = _json_out(capsys)
-    assert d["run_name"] == "inner" and "stl" in d["files"]
+def test_project_without_source_dir_lists_only_registered_parts(project, capsys):
+    text = (project / "bevel.yaml").read_text().replace("project:\n  name: demo\n", "project:\n  name: demo\n  src_dir: null\n")
+    (project / "bevel.yaml").write_text(text)
+    assert main(["list", "--json"]) == 0
+    assert all(p["kind"] != "project" for p in _json_out(capsys))
+    layout = commands.project_info(root=project)["layout"]
+    assert layout["src_dir"] is None
+    assert commands._layout(project).source_file_for("cube") is None  # src/cube.py is no longer a part
 
 
 def test_commands_render_api_returns_result(project):
