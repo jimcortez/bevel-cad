@@ -8,6 +8,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `lxml` is a core dependency (trimesh's 3MF exporter needs it).
 - `manifold3d>=3.5` is a core dependency: exact mesh booleans, `split_by_plane` and
   `minkowski_sum` for parts that work in the mesh domain (also trimesh's boolean engine).
 - Viewer assemblies: every render is pushed to cadquery-web-viewer as **one** object with one
@@ -36,6 +37,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rejects bundles without them (no fallback to `<stem>.glb`).
 - `iter_assembly_leaf_solids` applies node locations (composed with parents), matching
   `Assembly.toCompound()`; per-body STLs of assemblies that use `loc=` move accordingly.
+
+### Fixed
+
+- 3MF export writes closed meshes. CadQuery's 3MF exporter tessellated each face on its own and
+  shared no vertices, so slicers reported every face boundary as an open edge (every edge, for
+  solids sewn from triangles). `bevel_cad.mesh.threemf` now welds each body with trimesh and
+  writes the 3MF with trimesh's exporter, one named object per assembly body; a body from a
+  closed solid that does not weld closed fails the export.
 
 ## [0.2.0] - 2026-09-14
 

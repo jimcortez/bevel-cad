@@ -25,7 +25,8 @@ import yaml
 from omegaconf import DictConfig, OmegaConf
 
 from bevel_cad.config.paths import resolve_output_dir
-from bevel_cad.mesh.convert import assembly_to_glb_bytes, glb_bytes_to_trimesh, solid_to_glb_bytes
+from bevel_cad.mesh.convert import assembly_to_glb_bytes, glb_bytes_to_trimesh, solid_to_glb_bytes, solid_to_trimesh
+from bevel_cad.mesh.threemf import NamedMesh, weld_body, write_3mf
 from bevel_cad.render.assembly import AssemblyManifest, build_manifest
 from bevel_cad.render.colors import iter_assembly_leaf_solids
 from bevel_cad.render.errors import ExportError
@@ -281,6 +282,29 @@ class PartArtifacts:
         self.extra_written_paths.extend(written)
         return written
 
+    # 3MF --------------------------------------------------------------------------------------
+    def _bodies_for_3mf(self) -> List[NamedMesh]:
+        """One welded mesh per body: each assembly leaf, else the single solid, else the input mesh.
+
+        Bodies tessellated from closed B-rep solids must weld to closed meshes (see ``weld_body``).
+        """
+        if self.is_mesh and self.mesh is not None:
+            return [(self.run.run_name, weld_body(self.run.run_name, self.mesh, require_closed=False))]
+        tol, ang = self._tolerances()
+        if self.is_assembly and self.assy is not None:
+            leaves = iter_assembly_leaf_solids(self.assy)
+        else:
+            leaves = [(self.run.run_name, self.solid)]
+        bodies: List[NamedMesh] = []
+        for name, obj in leaves:
+            shells = obj.Shells()
+            closed = bool(shells) and all(shell.Closed() for shell in shells)
+            mesh = solid_to_trimesh(obj, tolerance=tol, angular_tolerance=ang)
+            bodies.append((str(name), weld_body(str(name), mesh, require_closed=closed)))
+        if len(bodies) != len(leaves):
+            raise ExportError(f"3MF: tessellated {len(bodies)} bodies for {len(leaves)} parts.")
+        return bodies
+
     # GLB --------------------------------------------------------------------------------------
     def ensure_glb_bytes(self) -> bytes:
         if self.glb_bytes is not None:
@@ -365,12 +389,13 @@ class PartArtifacts:
             return
 
         if fmt == "3mf":
-            tol, ang = self._tolerances()
-            if self.is_mesh and self.mesh is not None:
-                self.mesh.export(str(path), file_type="3mf")
-            else:
-                cq.exporters.export(self.solid, str(path), exportType="3MF", tolerance=tol, angularTolerance=ang)
-            logger.info("Exported 3MF to %s", path)
+            bodies = self._bodies_for_3mf()
+            write_3mf(path, bodies)
+            logger.info(
+                "Exported 3MF to %s (%s)",
+                path,
+                ", ".join(f"{name}: {len(m.faces)} triangles, {len(m.vertices)} vertices" for name, m in bodies),
+            )
             return
 
         if fmt == "glb":
