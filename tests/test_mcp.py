@@ -75,7 +75,7 @@ def test_render_inspect_show_in_process(project):
     async def go():
         async with Client(create_server(root=project, in_process_render=True)) as client:
             res = _structured(await client.call_tool("render", {"target": "cube", "skip": ["glb"], "name": "mcp-cube"}))
-            assert res["run_name"] == "mcp-cube" and set(res["files"]) == {"stl", "config", "stats"}
+            assert res["run_name"] == "mcp-cube" and set(res["files"]) == {"stl", "viewer", "config", "stats"}
             rep = _structured(await client.call_tool("inspect_mesh", {"path": res["files"]["stl"]}))
             assert rep["watertight"] is True and rep["volume"] == pytest.approx(27.0, rel=1e-3)
             listed = _structured(await client.call_tool("list_renders", {}))
@@ -102,7 +102,7 @@ def test_render_subprocess_streams_progress(project):
             )
             assert not result.is_error, result.content[0].text
             res = _structured(result)
-            assert set(res["files"]) == {"stl", "config"}
+            assert set(res["files"]) == {"stl", "viewer", "config"}
             assert Path(res["files"]["stl"]).is_file()
             assert any("STL" in m for m in seen), seen
             failed = await client.call_tool("render", {"target": "nope"})

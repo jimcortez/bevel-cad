@@ -37,16 +37,22 @@ parts). Without a GL stack the single preview test skips.
 
 ## Working against a local cadquery-web-viewer checkout
 
-bevel talks to the viewer over HTTP, so it does not need the package installed. To run the
-viewer from a sibling checkout:
+bevel imports `cadquery_web_viewer` to tessellate `<stem>.viewer.glb` (one node per part) and
+uploads it over HTTP to a viewer you run separately. Assembly support (`AssemblySpec`,
+`prepare_assembly_upload`) is in the viewer's `main` ahead of its 2.3 release, so install the
+sibling checkout into bevel's environment:
 
 ```bash
+uv sync --extra dev
+uv pip install -e ../cadquery-web-viewer
+# the viewer pulls in cadquery-ocp-novtk, whose OCP wheel overwrites cadquery's; put it back:
+uv pip install --reinstall --no-deps cadquery-ocp
+uv run --no-sync pytest            # --no-sync keeps the editable viewer
 cd ../cadquery-web-viewer && uv run cadquery-web-viewer
-cd ../bevel-cad && uv run bevel render <part> --viewer
+cd ../bevel-cad && uv run --no-sync bevel render <part> --viewer
 ```
 
-The `viewer` extra will come back once cadquery-web-viewer 2.2 (build123d 0.11 / OCP 7.9) is
-released; 2.1.x pins an OCP version that conflicts with cadquery 2.8.
+Once cadquery-web-viewer 2.3 is on PyPI, bump the pin to `>=2.3` and drop the editable install.
 
 ## Pull request expectations
 

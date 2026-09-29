@@ -20,19 +20,21 @@ classifiers = [
 dependencies = [
     "cadquery>=2.8",  # cadquery.func.fillet2D; 2.8 requires Python >=3.11
     "trimesh>=4.0",
+    "manifold3d>=3.5",  # exact mesh booleans / Minkowski offsets (also trimesh's boolean engine)
     "numpy>=1.26",
     "pyrender>=0.1.45",
     "pillow>=10",
     "omegaconf>=2.3",
     "pyyaml>=6",
     "httpx>=0.28,<1",
+    # Tessellates <stem>.viewer.glb (one glTF node per body) and uploads it. Assembly support
+    # (AssemblySpec / prepare_assembly_upload) lands in viewer 2.3; until that is on PyPI install
+    # the viewer from a checkout (see CONTRIBUTING.md). 2.2+ is build123d 0.11 / OCP 7.9, which
+    # coexists with cadquery 2.8.
+    "cadquery-web-viewer>=2.2",
 ]
 
 [project.optional-dependencies]
-# No `viewer` extra yet: bevel talks to cadquery-web-viewer over HTTP only, and the
-# published viewer (2.1.x) pins build123d<0.11 / OCP 7.8, which cannot coexist with
-# cadquery 2.8 (OCP 7.9). Install the viewer in its own environment for now; the extra
-# returns once cadquery-web-viewer 2.2 (build123d 0.11) is on PyPI.
 mcp = ["mcp>=2,<3"]
 dev = ["pytest>=8", "pytest-cov", "ruff>=0.15", "pyright>=1.1.409", "mcp[cli]>=2,<3"]
 

@@ -66,8 +66,10 @@ return assy
 ```
 
 bevel writes `<stem>_plate.stl`, `<stem>_text_fill.stl` next to the merged STL (slice each in
-its own colour) and pushes each body to the viewer in its own colour. Body names must be
-unique after slugging. A frozen dataclass of solids with a `to_assembly()` method is the
+its own colour) and pushes the whole thing to the viewer as **one** assembly object whose parts
+(`plate`, `text_fill`) are listed under it, each in its own colour (`viewer.colors`, default: an
+evenly spaced hue wheel) and individually toggleable. Node `loc=` placements are applied. Body
+names must be unique after slugging. A frozen dataclass of solids with a `to_assembly()` method is the
 tidy pattern (see `examples/src/button_label.py` in the bevel-cad repo).
 
 ## Style used across the bundled examples

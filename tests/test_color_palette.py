@@ -9,9 +9,9 @@ import pytest
 from cadquery.func import box
 
 from bevel_cad.render.colors import (
-    ColoredShape,
     iter_assembly_leaf_solids,
     palette_rgba,
+    rgb_to_hex,
 )
 
 
@@ -61,12 +61,9 @@ def test_palette_invalid_n():
         palette_rgba((0.5, 0.5, 0.5), 0)
 
 
-def test_colored_shape_exposes_color():
-    wp = box(1, 1, 1)
-    solid = wp.val() if hasattr(wp, "val") else wp
-    c = ColoredShape(solid, (1.0, 0.0, 0.0, 1.0))
-    assert c.color == (1.0, 0.0, 0.0, 1.0)
-    assert hasattr(c, "wrapped")
+def test_rgb_to_hex():
+    assert rgb_to_hex((1.0, 0.5, 0.0, 1.0)) == "#ff8000"
+    assert rgb_to_hex((0.0, 0.0, 0.0)) == "#000000"
 
 
 def test_iter_assembly_leaf_solids_two_parts():
@@ -76,3 +73,15 @@ def test_iter_assembly_leaf_solids_two_parts():
     leaves = iter_assembly_leaf_solids(assy)
     assert len(leaves) == 2
     assert [n for n, _ in leaves] == ["part_a", "part_b"]
+
+
+def test_iter_assembly_leaf_solids_applies_node_locations():
+    inner = cq.Assembly(name="inner").add(box(1, 1, 1), name="leaf", loc=cq.Location((5, 0, 0)))
+    assy = cq.Assembly(name="root").add(inner, name="inner", loc=cq.Location((0, 0, 10)))
+    leaves = iter_assembly_leaf_solids(assy)
+    assert [n for n, _ in leaves] == ["leaf"]
+    center = leaves[0][1].Center()
+    assert center.x == pytest.approx(5.0) and center.z == pytest.approx(10.0, abs=0.51)
+    # exactly where toCompound() puts it
+    c2 = assy.toCompound().Center()
+    assert (center.x, center.y, center.z) == pytest.approx((c2.x, c2.y, c2.z))

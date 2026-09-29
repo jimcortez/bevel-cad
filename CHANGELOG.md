@@ -6,6 +6,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `manifold3d>=3.5` is a core dependency: exact mesh booleans, `split_by_plane` and
+  `minkowski_sum` for parts that work in the mesh domain (also trimesh's boolean engine).
+- Viewer assemblies: every render is pushed to cadquery-web-viewer as **one** object with one
+  named part per body (a single solid is a one-part assembly). Parts can be shown/hidden and
+  recoloured individually in the browser; removal and versions apply to the whole object.
+- `viewer` export job (on by default): `<stem>.viewer.glb` (tessellated by the viewer package,
+  one glTF node per part) plus `<stem>.assembly.json`. `--viewer` synthesises the job when the
+  export is disabled. `bevel upload` sends these two files.
+- `viewer.colors` (`mode: auto | manual | off`, `base`, per-part `parts`), `viewer.tags` and
+  `viewer.part_tags`; parts are auto-tagged `body:<name>` / `index:<n>`, assemblies `bevel` /
+  `part:<target>`.
+- `render` results / JSON gain `viewer_parts`; the uploaded object's settings gain
+  `bevel.parts` and `bevel.part_count`.
+- `bevel_cad.render.assembly` (`AssemblyManifest`, `build_manifest`, `resolve_part_colors`),
+  `bevel_cad.render.viewer_glb.build_viewer_glb`, `bevel_cad.render.errors.ExportError`,
+  `bevel_cad.render.naming.name_from_target`.
+
+### Changed
+
+- **Breaking:** `cadquery-web-viewer>=2.2` is a hard dependency (assembly support needs the
+  unreleased 2.3 API; install it from a checkout until then).
+- **Breaking:** `bevel_cad.viewer.push_glb` and `push_colored_parts` are gone; use
+  `push_assembly` / `push_artifacts`. `push_artifacts(ctx, run)` no longer takes `name=` and
+  returns the single object name.
+- **Breaking:** `RenderBundle` gains `viewer_glb_path` / `assembly_json`; `resolve_render_bundle`
+  rejects bundles without them (no fallback to `<stem>.glb`).
+- `iter_assembly_leaf_solids` applies node locations (composed with parents), matching
+  `Assembly.toCompound()`; per-body STLs of assemblies that use `loc=` move accordingly.
+
 ## [0.2.0] - 2026-09-14
 
 ### Added

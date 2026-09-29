@@ -48,7 +48,7 @@ def test_render_by_name_uses_project_config_and_part_defaults(project, capsys):
     assert snap["extra"]["depth"] == 1  # part default survives
     assert snap["widget"]["size"] == 5  # project config survives
     assert snap["part"] == "cube"
-    assert set(d["files"]) == {"stl", "glb", "config", "stats"}
+    assert set(d["files"]) == {"stl", "glb", "viewer", "config", "stats"}
 
 
 def test_render_by_config_name_follows_part_key(project, capsys):
@@ -62,7 +62,7 @@ def test_render_yaml_target_dotlist_and_filters(project, capsys):
     rc = main(["render", "configs/alias.yaml", "size=1", "--skip", "glb", "--json"])
     assert rc == 0
     d = _json_out(capsys)
-    assert d["run_name"] == "aliased" and set(d["files"]) == {"stl", "config", "stats"}
+    assert d["run_name"] == "aliased" and set(d["files"]) == {"stl", "viewer", "config", "stats"}
     stem = d["stem"]
     snap = yaml.safe_load((Path(d["bundle_dir"]) / f"{stem}.yaml").read_text())
     assert snap["size"] == 1
@@ -134,7 +134,15 @@ def test_renders_show_inspect_upload(project, capsys):
     up = _json_out(capsys)
     assert up["viewer_names"] == ["cube"] and up["viewer_url"] == "http://localhost:4242/"
     assert show.call_args[1]["remote_options"]["port"] == 4242
-    assert show.call_args[0][0] == Path(d["files"]["glb"]).read_bytes()
+    # the viewer GLB (not the plain mesh GLB) and its manifest are what gets uploaded
+    assert show.call_args[0][0] == Path(d["files"]["viewer"]).read_bytes()
+    assert show.call_args[1]["names"] == "cube"
+    assert [p["name"] for p in show.call_args[1]["assembly"]["parts"]] == ["cube"]
+    assert d["viewer_names"] == [] and d["viewer_parts"] == []
+    with patch("bevel_cad.viewer.ensure_reachable"), patch("bevel_cad.viewer._show") as show:
+        assert main(["upload", d["bundle_dir"], "--name", "renamed", "--json"]) == 0
+    assert _json_out(capsys)["viewer_names"] == ["renamed"]
+    assert show.call_args[1]["names"] == "renamed" and show.call_args[1]["assembly"]["name"] == "renamed"
 
 
 def test_build_returning_none_is_an_error(project, capsys):

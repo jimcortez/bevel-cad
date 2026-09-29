@@ -6,6 +6,8 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from bevel_cad.render.naming import assembly_manifest_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,8 +17,13 @@ class RenderBundle:
 
     bundle_dir: Path
     stem: str
-    glb_path: Path
+    viewer_glb_path: Path
+    """``<stem>.viewer.glb`` -- the assembly GLB that ``bevel upload`` sends."""
+    assembly_json: Path
+    """``<stem>.assembly.json`` -- part names, colours and tags of the viewer GLB."""
     config_yaml: Path
+    glb_path: Path
+    """``<stem>.glb`` (plain mesh export); may not exist."""
 
 
 def resolve_render_bundle(path: Path) -> RenderBundle:
@@ -31,7 +38,8 @@ def resolve_render_bundle(path: Path) -> RenderBundle:
 
     Raises:
         ValueError: If ``path`` is not a directory or YAML file.
-        FileNotFoundError: If the bundle GLB is missing.
+        FileNotFoundError: If the viewer GLB or assembly manifest is missing (bundles rendered
+            before assembly uploads existed, or with ``rendering.exports.viewer`` disabled).
     """
     resolved = path.resolve()
     if resolved.is_file() and resolved.suffix in {".yaml", ".yml"}:
@@ -45,11 +53,17 @@ def resolve_render_bundle(path: Path) -> RenderBundle:
             f"Render bundle path must be a directory or YAML file, got: {path}"
         )
 
-    glb_path = bundle_dir / f"{stem}.glb"
+    viewer_glb_path = bundle_dir / f"{stem}.viewer.glb"
+    assembly_json = bundle_dir / assembly_manifest_name(stem)
     config_yaml = bundle_dir / f"{stem}.yaml"
+    glb_path = bundle_dir / f"{stem}.glb"
 
-    if not glb_path.is_file():
-        raise FileNotFoundError(f"Render bundle GLB not found: {glb_path}")
+    for required, label in ((viewer_glb_path, "Viewer GLB"), (assembly_json, "Assembly manifest")):
+        if not required.is_file():
+            raise FileNotFoundError(
+                f"{label} not found: {required}. This bundle predates assembly uploads or was rendered "
+                "with rendering.exports.viewer disabled; re-render it with the viewer export enabled."
+            )
 
     if not config_yaml.is_file():
         logger.info(
@@ -60,6 +74,8 @@ def resolve_render_bundle(path: Path) -> RenderBundle:
     return RenderBundle(
         bundle_dir=bundle_dir,
         stem=stem,
-        glb_path=glb_path,
+        viewer_glb_path=viewer_glb_path,
+        assembly_json=assembly_json,
         config_yaml=config_yaml,
+        glb_path=glb_path,
     )

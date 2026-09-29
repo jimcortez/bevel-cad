@@ -37,4 +37,6 @@ listed ones. Both accept format names (`stl`) or job names (`iso`).
 ## `--json`
 
 Every command prints a JSON object/array with `--json` — the same data the MCP server returns.
-`render` gives `{run_name, stem, bundle_dir, files{job: path}, extra_files[], viewer_names[], stats{}}`.
+`render` gives `{run_name, stem, bundle_dir, files{job: path}, extra_files[], viewer_names[], viewer_parts[], stats{}}`;
+`viewer_names` is the single assembly object name when pushed and `viewer_parts` its part names.
+`upload` needs `<stem>.viewer.glb` and `<stem>.assembly.json` in the bundle (see docs/viewer.md).

@@ -30,7 +30,8 @@ A complete bundle contains, all sharing the stem:
 |---|---|
 | `<stem>.stl` | merged mesh -> `bevel inspect` |
 | `<stem>_<body>.stl` | one per named body (assemblies) -> inspect each |
-| `<stem>.glb` | what the viewer/preview use |
+| `<stem>.glb` | plain mesh GLB (preview / gltf / obj source) |
+| `<stem>.viewer.glb` + `<stem>.assembly.json` | what `--viewer` / `bevel upload` send: one node per body, part names/colours/tags |
 | `<stem>.png` | **open it and look** (see 3) |
 | `<stem>.yaml` | the exact config that produced this; re-run with `bevel render -c <stem>.yaml` |
 | `<stem>.csv` | stage timings, git commit, config sources |
@@ -64,8 +65,11 @@ design intent (a 50 mm block is 50 x 50 x 50, a plate is `thickness` tall).
 ## 5. Viewer (optional, for interactive inspection)
 
 Start `cadquery-web-viewer` in another terminal, then `bevel render <part> --viewer` or
-`bevel upload renders/<stem>`. Multi-body assemblies arrive as separately coloured objects.
-If the viewer is down, bevel exits 1 with the start command — it never writes a partial bundle.
+`bevel upload renders/<stem>`. Every render is one viewer object (an assembly); multi-body
+parts show their bodies as nested parts, each in its own colour, toggleable one by one. Only the
+whole assembly can be removed; re-pushing the same run name adds a version. Colours come from
+`viewer.colors` (`auto` palette / `manual` per part / `off`). If the viewer is down, bevel exits
+1 with the start command — it never writes a partial bundle.
 
 ## Acceptance checklist
 

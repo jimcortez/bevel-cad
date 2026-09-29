@@ -5,7 +5,7 @@ Harmonious color palettes and assembly helpers for multi-part viewer display.
 from __future__ import annotations
 
 import colorsys
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import cadquery as cq
 
@@ -15,14 +15,6 @@ ColorRGB = Tuple[float, float, float]
 # Achromatic bases (e.g. preview.color '#b3b3b3') have s≈0; boost so parts differ in the viewer.
 _MIN_PALETTE_SATURATION = 0.72
 _MIN_PALETTE_VALUE = 0.55
-
-
-class ColoredShape:
-    """Wrap a tessellatable solid so cadquery-web-viewer picks up per-object face color."""
-
-    def __init__(self, shape: object, color: ColorRGBA) -> None:
-        self.wrapped = shape
-        self.color = color
 
 
 def palette_rgba(base_rgb: ColorRGB, n: int) -> List[ColorRGBA]:
@@ -51,6 +43,12 @@ def palette_rgba(base_rgb: ColorRGB, n: int) -> List[ColorRGBA]:
     return out
 
 
+def rgb_to_hex(rgb: Tuple[float, ...]) -> str:
+    """``(r, g, b[, a])`` in [0, 1] -> ``#rrggbb`` (alpha dropped)."""
+    r, g, b = (max(0, min(255, round(float(c) * 255))) for c in rgb[:3])
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
 def _is_tessellatable_solid(obj: object) -> bool:
     if isinstance(obj, str):
         return False
@@ -61,27 +59,31 @@ def _is_tessellatable_solid(obj: object) -> bool:
     return type_name in ("Solid", "Compound")
 
 
-def iter_assembly_leaf_solids(assy: cq.Assembly) -> List[Tuple[str, object]]:
-    """
-    Return named leaf solids from an assembly in ``traverse()`` order.
+def _world_location(node: Any) -> cq.Location:
+    """Compose ``loc`` up the parent chain, matching ``cq.Assembly.toCompound()``."""
+    loc = node.loc
+    parent = node.parent
+    while parent is not None:
+        loc = parent.loc * loc
+        parent = parent.parent
+    return loc
 
-    Skips the root node (non-solid ``obj``) and any non-tessellatable children.
+
+def iter_assembly_leaf_solids(assy: cq.Assembly) -> List[Tuple[str, Any]]:
     """
-    parts: List[Tuple[str, object]] = []
+    Return named leaf solids from an assembly in ``traverse()`` order, in world coordinates.
+
+    Each node's ``loc`` (composed with its parents') is applied, so the solids sit where
+    ``assy.toCompound()`` puts them. Skips the root node (non-solid ``obj``) and any
+    non-tessellatable children.
+    """
+    parts: List[Tuple[str, Any]] = []
     for name, node in assy.traverse():
         obj = node.obj
         if not _is_tessellatable_solid(obj):
             continue
+        loc = _world_location(node)
+        if not loc.wrapped.IsIdentity():
+            obj = obj.moved(loc)
         parts.append((str(name), obj))
     return parts
-
-
-def colored_assembly_shapes(
-    assy: cq.Assembly, base_rgb: ColorRGB
-) -> Tuple[List[str], List[ColoredShape]]:
-    """Assign a harmonious palette to each leaf solid in *assy*."""
-    leaves = iter_assembly_leaf_solids(assy)
-    colors = palette_rgba(base_rgb, len(leaves))
-    names = [name for name, _ in leaves]
-    shapes = [ColoredShape(solid, color) for (_, solid), color in zip(leaves, colors)]
-    return names, shapes

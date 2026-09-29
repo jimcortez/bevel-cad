@@ -3,12 +3,14 @@ The render pipeline: one call turns a CadQuery part into a render bundle.
 
 ``render_part(part, cfg)`` plans the export jobs from ``rendering.exports``,
 writes them into ``<output_dir>/<slug>_<timestamp>/`` (STL, STEP, 3MF, GLB,
-GLTF, OBJ, preview PNG, config snapshot, stats CSV, log) and finally pushes
-the geometry to cadquery-web-viewer when ``viewer.enabled`` is set.
+viewer GLB + assembly manifest, GLTF, OBJ, preview PNG, config snapshot, stats
+CSV, log) and finally pushes the viewer GLB to cadquery-web-viewer as one
+assembly object when ``viewer.enabled`` is set.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import tempfile
@@ -24,24 +26,32 @@ from omegaconf import DictConfig, OmegaConf
 
 from bevel_cad.config.paths import resolve_output_dir
 from bevel_cad.mesh.convert import assembly_to_glb_bytes, glb_bytes_to_trimesh, solid_to_glb_bytes
+from bevel_cad.render.assembly import AssemblyManifest, build_manifest
 from bevel_cad.render.colors import iter_assembly_leaf_solids
+from bevel_cad.render.errors import ExportError
 from bevel_cad.render.logbuffer import (
     attach_render_log_buffer,
     discard_render_log_buffer,
     finalize_render_log,
 )
-from bevel_cad.render.naming import body_slug, render_bundle_stem, resolve_filename_template
+from bevel_cad.render.naming import (
+    assembly_manifest_name,
+    body_slug,
+    name_from_target,
+    render_bundle_stem,
+    resolve_filename_template,
+)
 from bevel_cad.render.planner import ExportJob, RenderPlan, RenderPlanner, job_specs_from_config
 from bevel_cad.render.preview import render_glb_to_image
 from bevel_cad.render.stats import RenderStats
+from bevel_cad.render.viewer_glb import ViewerGlb, build_viewer_glb
 
 logger = logging.getLogger(__name__)
 
 PartLike = Union[cq.Assembly, cq.Shape, cq.Workplane, trimesh.Trimesh, Any]
 
 
-class ExportError(RuntimeError):
-    """An export job could not be completed."""
+__all__ = ["ExportError", "PartArtifacts", "RenderResult", "RunContext", "render_part", "resolve_run_name", "start_run"]
 
 
 # --- run context ----------------------------------------------------------------------------
@@ -62,14 +72,7 @@ class RunContext:
     started_at: datetime = field(default_factory=datetime.now)
 
 
-def _name_from_target(target: str) -> str:
-    """``src/foo.py`` -> ``foo``; ``pkg.mod:fn`` -> ``fn``; ``pkg.mod`` -> ``mod``; ``name`` -> ``name``."""
-    s = str(target).strip()
-    if ":" in s:
-        s = s.rsplit(":", 1)[-1]
-    if "/" in s or s.endswith(".py"):
-        return Path(s).stem
-    return s.rsplit(".", 1)[-1]
+_name_from_target = name_from_target
 
 
 def resolve_run_name(
@@ -129,6 +132,9 @@ class RenderResult:
     written: Dict[str, Path]
     extra_paths: Tuple[Path, ...]
     viewer_names: Tuple[str, ...]
+    """Name of the viewer assembly object when pushed (always a single name)."""
+    viewer_parts: Tuple[str, ...] = ()
+    """Part names of the pushed assembly."""
 
     @property
     def bundle_dir(self) -> Path:
@@ -156,6 +162,7 @@ class RenderResult:
             "files": {name: str(p) for name, p in self.written.items()},
             "extra_files": [str(p) for p in self.extra_paths],
             "viewer_names": list(self.viewer_names),
+            "viewer_parts": list(self.viewer_parts),
             "stats": {s.name: s.value for s in self.run.stats.stats},
         }
 
@@ -179,6 +186,8 @@ class PartArtifacts:
         self.stl_written_path: Optional[Path] = None
         self.glb_bytes: Optional[bytes] = None
         self.extra_written_paths: List[Path] = []
+        self._manifest: Optional[AssemblyManifest] = None
+        self._viewer_glb: Optional[ViewerGlb] = None
 
     # normalisation -------------------------------------------------------------------------
     def _normalize(self) -> None:
@@ -286,14 +295,36 @@ class PartArtifacts:
             self.glb_bytes = solid_to_glb_bytes(self.solid, tolerance=tol, angular_tolerance=ang)
         return self.glb_bytes
 
-    def bundle_glb_path(self) -> Optional[Path]:
-        """Path of the planned GLB file (enabled or dependency-only), if any."""
+    def bundle_path_for(self, fmt: str) -> Optional[Path]:
+        """Path of the planned file for export format ``fmt`` (enabled or dependency-only), if any."""
         for spec in job_specs_from_config(self.cfg):
-            if spec.format == "glb":
+            if spec.format == fmt:
                 return self.run.bundle_dir / resolve_filename_template(
                     spec.filename_template, bundle_stem=self.run.stem, run_name=self.run.run_name
                 )
         return None
+
+    def bundle_glb_path(self) -> Optional[Path]:
+        return self.bundle_path_for("glb")
+
+    def bundle_viewer_glb_path(self) -> Optional[Path]:
+        return self.bundle_path_for("viewer")
+
+    # viewer assembly ----------------------------------------------------------------------
+    def ensure_manifest(self) -> AssemblyManifest:
+        """Named, coloured, tagged parts of this render (one per assembly body, else one part)."""
+        if self._manifest is None:
+            self._manifest = build_manifest(self, self.run)
+        return self._manifest
+
+    def ensure_viewer_glb(self) -> ViewerGlb:
+        """``(glb, hash, kwargs)`` of the assembly GLB, tessellated once by the viewer package."""
+        if self._viewer_glb is None:
+            self._viewer_glb = build_viewer_glb(self.ensure_manifest(), self.cfg)
+        return self._viewer_glb
+
+    def assembly_manifest_path(self) -> Path:
+        return self.run.bundle_dir / assembly_manifest_name(self.run.stem)
 
     # jobs -------------------------------------------------------------------------------------
     def execute_job(self, job: ExportJob) -> None:
@@ -345,6 +376,16 @@ class PartArtifacts:
         if fmt == "glb":
             path.write_bytes(self.ensure_glb_bytes())
             logger.info("Exported GLB to %s", path)
+            return
+
+        if fmt == "viewer":
+            glb, _content_hash, kwargs = self.ensure_viewer_glb()
+            path.write_bytes(glb)
+            logger.info("Exported viewer GLB to %s", path)
+            manifest_path = self.assembly_manifest_path()
+            manifest_path.write_text(json.dumps(kwargs["assembly"], indent=2), encoding="utf-8")
+            self.extra_written_paths.append(manifest_path)
+            logger.info("Exported assembly manifest to %s", manifest_path)
             return
 
         if fmt == "gltf":
@@ -473,13 +514,16 @@ def render_part(
         ctx.execute_job(job)
 
     viewer_names: Tuple[str, ...] = ()
+    viewer_parts: Tuple[str, ...] = ()
     if plan.want_viewer:
         from bevel_cad import viewer as viewer_mod
 
-        viewer_names = tuple(viewer_mod.push_artifacts(ctx, run, name=run.run_name))
+        viewer_names = (viewer_mod.push_artifacts(ctx, run),)
+        viewer_parts = tuple(ctx.ensure_manifest().part_names)
 
     written = {j.name: j.resolved_path for j in plan.jobs if j.resolved_path.exists()}
     logger.info("Wrote render bundle to %s/ (%d files)", plan.bundle_dir, len(written) + len(ctx.extra_written_paths))
     return RenderResult(
-        run=run, plan=plan, written=written, extra_paths=tuple(ctx.extra_written_paths), viewer_names=viewer_names
+        run=run, plan=plan, written=written, extra_paths=tuple(ctx.extra_written_paths),
+        viewer_names=viewer_names, viewer_parts=viewer_parts,
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Dict
 
 DEFAULT_FILENAME_TEMPLATES: Dict[str, str] = {
@@ -11,6 +12,7 @@ DEFAULT_FILENAME_TEMPLATES: Dict[str, str] = {
     "step": "{name}.step",
     "3mf": "{name}.3mf",
     "glb": "{name}.glb",
+    "viewer": "{name}.viewer.glb",
     "gltf": "{name}.gltf",
     "obj": "{name}.obj",
     "preview": "{name}.png",
@@ -19,6 +21,23 @@ DEFAULT_FILENAME_TEMPLATES: Dict[str, str] = {
 }
 
 VALID_EXPORT_FORMATS = frozenset(DEFAULT_FILENAME_TEMPLATES.keys())
+
+ASSEMBLY_MANIFEST_SUFFIX = ".assembly.json"
+
+
+def assembly_manifest_name(bundle_stem: str) -> str:
+    """``<stem>.assembly.json`` -- the viewer assembly manifest written next to ``<stem>.viewer.glb``."""
+    return f"{bundle_stem}{ASSEMBLY_MANIFEST_SUFFIX}"
+
+
+def name_from_target(target: str) -> str:
+    """``src/foo.py`` -> ``foo``; ``pkg.mod:fn`` -> ``fn``; ``pkg.mod`` -> ``mod``; ``name`` -> ``name``."""
+    s = str(target).strip()
+    if ":" in s:
+        s = s.rsplit(":", 1)[-1]
+    if "/" in s or s.endswith(".py"):
+        return Path(s).stem
+    return s.rsplit(".", 1)[-1]
 
 
 def slugify(s: str) -> str:
