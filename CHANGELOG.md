@@ -28,8 +28,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Breaking:** `cadquery-web-viewer>=2.2` is a hard dependency (assembly support needs the
-  unreleased 2.3 API; install it from a checkout until then).
+- **Breaking:** `cadquery-web-viewer>=2.3` is a hard dependency (its assembly API tessellates
+  and uploads every render).
 - **Breaking:** `bevel_cad.viewer.push_glb` and `push_colored_parts` are gone; use
   `push_assembly` / `push_artifacts`. `push_artifacts(ctx, run)` no longer takes `name=` and
   returns the single object name.

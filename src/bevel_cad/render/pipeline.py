@@ -25,7 +25,12 @@ import yaml
 from omegaconf import DictConfig, OmegaConf
 
 from bevel_cad.config.paths import resolve_output_dir
-from bevel_cad.mesh.convert import assembly_to_glb_bytes, glb_bytes_to_trimesh, solid_to_glb_bytes, solid_to_trimesh
+from bevel_cad.mesh.convert import (
+    assembly_to_glb_bytes,
+    glb_bytes_to_trimesh,
+    solid_to_glb_bytes,
+    solid_to_trimesh,
+)
 from bevel_cad.mesh.threemf import NamedMesh, weld_body, write_3mf
 from bevel_cad.render.assembly import AssemblyManifest, build_manifest
 from bevel_cad.render.colors import iter_assembly_leaf_solids

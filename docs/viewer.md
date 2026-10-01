@@ -1,14 +1,19 @@
 # cadquery-web-viewer integration
 
-bevel depends on [cadquery-web-viewer](https://github.com/jimcortez/cadquery-web-viewer) (2.2+
-is build123d 0.11 / OCP 7.9 and coexists with cadquery 2.8; assembly support lands in 2.3) and
-talks to a viewer you run separately:
+bevel depends on [cadquery-web-viewer](https://github.com/jimcortez/cadquery-web-viewer) 2.3+
+(assembly support; build123d 0.11 / OCP 7.9, which coexists with cadquery 2.8) and talks to a
+viewer you run separately:
 
 ```bash
 cadquery-web-viewer --host localhost --port 32323
 bevel render widget --viewer          # or viewer.enabled=true in bevel.yaml
 bevel upload renders/widget_20260827-101500
 ```
+
+If `bevel` fails at import time with `cannot import name 'IVtkOCC_Shape' from 'OCP.IVtkOCC'`, the
+viewer's `cadquery-ocp-novtk` wheel overwrote cadquery's `cadquery-ocp` (both write the same
+`OCP/` files; the last one installed wins). Reinstall `cadquery-ocp` at the version you already
+have, for example `pip install --force-reinstall --no-deps cadquery-ocp==7.9.3.1.1`.
 
 ## One assembly object per render
 
