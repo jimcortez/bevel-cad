@@ -72,7 +72,7 @@ def build_parser(*, prog: str = "bevel", hooks: Optional[Hooks] = None) -> argpa
     _add_config_args(p)
     _add_common(p)
 
-    p = sub.add_parser("upload", help="push an existing render bundle to the viewer")
+    p = sub.add_parser("upload", help="push an existing render bundle (its .viewer.glb) to the viewer as one assembly")
     p.add_argument("bundle", help="bundle directory or its <stem>.yaml")
     p.add_argument("overrides", nargs="*", metavar="KEY=VALUE")
     _add_config_args(p)
@@ -148,9 +148,11 @@ def _render_text(res) -> None:
     for name, path in res.written.items():
         print(f"  {name:8s} {path.name}")
     for p in res.extra_paths:
-        print(f"  body     {p.name}")
+        label = "manifest" if p.name.endswith(".assembly.json") else "body"
+        print(f"  {label:<8} {p.name}")
     if res.viewer_names:
-        print(f"  viewer   {', '.join(res.viewer_names)}")
+        parts = f" ({len(res.viewer_parts)} parts: {', '.join(res.viewer_parts)})" if res.viewer_parts else ""
+        print(f"  viewer   {', '.join(res.viewer_names)}{parts}")
 
 
 def _dispatch(args: argparse.Namespace, hooks: Hooks) -> int:

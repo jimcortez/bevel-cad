@@ -78,7 +78,7 @@ free-form. Missing keys raise (no silent `None`); use `cfg.get("key", default)` 
 | `bevel list` / `bevel describe NAME` | discoverable parts and their defaults |
 | `bevel renders` / `bevel show BUNDLE` | previous bundles; files, snapshot, stats, log |
 | `bevel inspect MESH…` | watertight, components, boundary/non-manifold edges, volume |
-| `bevel upload BUNDLE` | re-push a bundle to the viewer |
+| `bevel upload BUNDLE` | re-push a bundle to the viewer as one assembly (named, coloured parts) |
 | `bevel create` / `bevel add` / `bevel templates` | scaffolding (`basic`, `label`) |
 | `bevel skills list\|install` | agent skills for building/verifying parts |
 | `bevel mcp [--transport stdio\|streamable-http]` | MCP server |

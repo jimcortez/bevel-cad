@@ -55,6 +55,18 @@ def test_typed_validation_error(tmp_path):
         load_layers(project_config=None, user_config=False, overrides={"rendering": {"unknown_key": 1}})
 
 
+def test_viewer_assembly_keys_are_typed():
+    cfg = load_layers(
+        project_config=None, user_config=False,
+        dotlist=["viewer.colors.mode=manual", 'viewer.colors.parts.a="#ff0000"', "viewer.tags=[x]", "viewer.part_tags.a=[y]"],
+    ).cfg
+    assert cfg.viewer.colors.mode == "manual" and cfg.viewer.colors.parts.a == "#ff0000"
+    assert list(cfg.viewer.tags) == ["x"] and list(cfg.viewer.part_tags.a) == ["y"]
+    assert cfg.viewer.colors.base is None
+    with pytest.raises(ConfigError):
+        load_layers(project_config=None, user_config=False, dotlist=["viewer.colors.gamma=1"])
+
+
 def test_server_block_is_rejected():
     with pytest.raises(ConfigError, match="renamed 'viewer:'"):
         normalize_layer({"server": {"viewer": {"host": "h"}}}, source="x.yaml")

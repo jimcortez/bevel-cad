@@ -80,6 +80,13 @@ jobs:
           enable-cache: true
       - name: Sync dependencies
         run: uv sync --locked --extra dev
+      - name: Put the VTK build of OCP back on top
+        # cadquery needs cadquery-ocp (VTK); cadquery-web-viewer -> build123d needs
+        # cadquery-ocp-novtk. Both wheels write the same OCP/ files and uv installs them
+        # in parallel, so whichever lands last wins. A second sync that reinstalls only
+        # cadquery-ocp (at the locked version) makes the VTK build the deterministic
+        # winner; build123d runs fine on it. See CONTRIBUTING.md.
+        run: uv sync --locked --extra dev --reinstall-package cadquery-ocp
       - name: Ruff
         if: runner.os == 'Linux'
         run: uv run ruff check .
@@ -116,6 +123,10 @@ jobs:
           cd "$work"
           uv venv .venv
           uv pip install "$wheel"
+          # Same OCP wheel collision as in the test job (see "Put the VTK build of OCP
+          # back on top"); here there is no lock, so reinstall the version that resolved.
+          ocp_version=$(uv pip show cadquery-ocp | awk '/^Version:/ {print $2}')
+          uv pip install --reinstall --no-deps "cadquery-ocp==$ocp_version"
           export PATH="$work/.venv/bin:$PATH"
           bevel --version
           bevel templates --json

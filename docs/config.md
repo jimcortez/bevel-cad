@@ -39,6 +39,7 @@ rendering:
     step:    {enabled: false, write_pcurves: true, precision_mode: 0}
     "3mf":   {enabled: false}
     glb:     {enabled: true}
+    viewer:  {enabled: true}     # {name}.viewer.glb + {name}.assembly.json (what --viewer / upload send)
     gltf:    {enabled: false}
     obj:     {enabled: false, unit_scale_mm_to_m: true, target_face_count: null, watertight_required: false}
     preview: {enabled: true, image_width: 800, image_height: 600, elevation: 30, azimuth: 45, roll: 0,
@@ -56,12 +57,16 @@ viewer:
   tolerance: 0.05           # coarser tessellation for the viewer
   angular_tolerance: 0.1
   style: {protocol: null, texture: null, color_faces: null, color_edges: null, color_vertices: null}
+  colors: {mode: auto, base: null, parts: {}}   # per-part colours: auto | manual | off (docs/viewer.md)
+  tags: []                  # assembly-level tags
+  part_tags: {}             # part name -> [tags]
 ```
 
 Export jobs: `format` defaults to the key, `filename` to `{name}.<ext>` where `{name}` is the
 bundle stem and `{run_name}` the raw run name. Jobs run in a fixed order
-(step, stl, 3mf, glb, gltf, obj, preview, config, stats); `preview`/`obj`/`gltf` synthesise a
-disabled GLB job when GLB is off. Two jobs resolving to the same file is an error.
+(step, stl, 3mf, glb, viewer, gltf, obj, preview, config, stats); `preview`/`obj`/`gltf` synthesise a
+disabled GLB job when GLB is off, and `--viewer` synthesises a disabled `viewer` job when that
+export is off (the push needs the file). The `viewer` job takes no settings. Two jobs resolving to the same file is an error.
 
 Typed blocks reject unknown keys and wrong types (`viewer.port=abc` fails at load). All other
 top-level keys are free-form for parts. The merged config is **struct**: a missing attribute

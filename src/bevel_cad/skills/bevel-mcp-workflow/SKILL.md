@@ -20,7 +20,7 @@ arguments and structured results. Everything is scoped to one project root.
 | `inspect_mesh(path)` | watertight / components / open edges / volume / extents |
 | `get_preview(bundle)` | the preview PNG as an image — look at it |
 | `list_renders` / `describe_render(bundle)` | find previous bundles; read snapshot, stats, log tail |
-| `upload(bundle)` | push a bundle to cadquery-web-viewer |
+| `upload(bundle)` | push a bundle's `.viewer.glb` to cadquery-web-viewer as one assembly (named parts) |
 | `list_templates` / `create_project` / `add_part` | scaffold new work |
 
 ## The reliable sequence
@@ -38,8 +38,9 @@ arguments and structured results. Everything is scoped to one project root.
 
 ## Reading a `render` result
 
-`files` maps job name -> path; `extra_files` are per-body STLs; `stats` includes timings,
-`git.commit`, and every config source layer; `viewer_names` is non-empty only when pushed.
+`files` maps job name -> path (`viewer` is the assembly GLB); `extra_files` are per-body STLs
+plus `<stem>.assembly.json`; `stats` includes timings, `git.commit`, and every config source
+layer; `viewer_names` (the one assembly object) and `viewer_parts` are non-empty only when pushed.
 `bundle_dir: null` means nothing was written (all exports disabled or a legacy part).
 
 ## Failures

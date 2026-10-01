@@ -37,7 +37,7 @@ def test_create_basic_and_render(tmp_path, monkeypatch, clean_logging, capsys):
     monkeypatch.chdir(root)
     assert main(["render", "my_block", "--skip", "preview", "--json"]) == 0
     d = _json(capsys)
-    assert set(d["files"]) == {"step", "glb", "config", "stats"}
+    assert set(d["files"]) == {"step", "glb", "viewer", "config", "stats"}
     assert Path(d["bundle_dir"]).parent == root / "renders"
     # the pocket removed volume from the cube
 
@@ -63,7 +63,7 @@ def test_add_label_part_and_render(tmp_path, monkeypatch, clean_logging, capsys)
     assert 'text: "Hi"' in (root / "configs" / "sign.yaml").read_text()
     assert main(["render", "sign", "--skip", "preview", "--json"]) == 0
     d = _json(capsys)
-    assert sorted(Path(p).name for p in d["extra_files"]) == [f"{d['stem']}_plate.stl", f"{d['stem']}_text_fill.stl"]
+    assert sorted(Path(p).name for p in d["extra_files"]) == [f"{d['stem']}.assembly.json", f"{d['stem']}_plate.stl", f"{d['stem']}_text_fill.stl"]
     assert main(["add", "sign", "--template", "label", "--param", "text=Hi"]) == 1
 
 

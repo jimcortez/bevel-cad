@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import zipfile
 from datetime import datetime
@@ -12,9 +13,12 @@ import pytest
 import trimesh
 import yaml
 from cadquery.func import box
+from pygltflib import GLTF2
 
 from bevel_cad.config import load_layers
 from bevel_cad.render.pipeline import ExportError, PartArtifacts, render_part, start_run
+
+VIEWER_FILES = (".viewer.glb", ".assembly.json")
 
 
 def _cfg(tmp_path, monkeypatch, *dotlist, **kw):
@@ -31,8 +35,13 @@ def test_render_solid_writes_bundle(tmp_path, monkeypatch, clean_logging):
 
     res = render_part(box(10, 10, 10), run)
     names = sorted(p.name for p in res.bundle_dir.iterdir())
-    assert names == sorted(f"{run.stem}{ext}" for ext in (".stl", ".step", ".3mf", ".glb", ".gltf", ".obj", ".yaml", ".csv", ".log"))
-    assert set(res.written) == {"stl", "step", "3mf", "glb", "gltf", "obj", "config", "stats"}
+    assert names == sorted(f"{run.stem}{ext}" for ext in (".stl", ".step", ".3mf", ".glb", ".gltf", ".obj", ".yaml", ".csv", ".log", *VIEWER_FILES))
+    assert set(res.written) == {"stl", "step", "3mf", "glb", "viewer", "gltf", "obj", "config", "stats"}
+    assert res.path_for("viewer") == res.bundle_dir / f"{run.stem}.viewer.glb"
+    assert [p.name for p in res.extra_paths] == [f"{run.stem}.assembly.json"]
+    manifest = json.loads((res.bundle_dir / f"{run.stem}.assembly.json").read_text())
+    assert manifest["name"] == "My Box" and [p["name"] for p in manifest["parts"]] == ["My Box"]
+    assert manifest["tags"] == ["bevel", "part:box"]
     assert res.path_for("stl") == res.bundle_dir / f"{run.stem}.stl"
     # 3MF is a real zip container, not renamed STL bytes.
     assert zipfile.is_zipfile(res.path_for("3mf"))
@@ -59,8 +68,16 @@ def test_assembly_body_stls_and_workplane_and_wrapped(tmp_path, monkeypatch, cle
     assy = assy.add(box(10, 10, 4), name="plate")
     assy = assy.add(box(2, 2, 1).moved(cq.Location((0, 0, 3))), name="text fill")
     res = render_part(assy, cfg, name="two")
-    assert [p.name for p in res.extra_paths] == [f"{res.stem}_plate.stl", f"{res.stem}_text-fill.stl"]
+    assert [p.name for p in res.extra_paths] == [f"{res.stem}_plate.stl", f"{res.stem}_text-fill.stl", f"{res.stem}.assembly.json"]
     assert all(p.stat().st_size > 0 for p in res.extra_paths)
+    # the viewer GLB has one node per body under the root, tagged for the browser
+    doc = GLTF2.load_from_bytes(res.path_for("viewer").read_bytes())
+    assert [n.name for n in doc.nodes] == ["two", "plate", "text fill"]
+    assert doc.nodes[0].children == [1, 2] and len(doc.meshes) == 2
+    assert doc.nodes[1].extras["__cadquery_web_viewer_part"] == "plate"
+    manifest = doc.nodes[0].extras["__cadquery_web_viewer_assembly"]
+    assert [p["name"] for p in manifest["parts"]] == ["plate", "text fill"]
+    assert len({p["color"] for p in manifest["parts"]}) == 2
 
     run = start_run(cfg, name="wp")
     ctx = PartArtifacts(cq.Workplane("XY").box(1, 1, 1), run)
@@ -81,13 +98,16 @@ def test_mesh_input_exports_stl_but_rejects_step(tmp_path, monkeypatch, clean_lo
     mesh = trimesh.creation.box(extents=(1, 1, 1))
     res = render_part(mesh, cfg, name="mesh")
     assert res.path_for("stl").exists() and res.path_for("glb").exists()
+    doc = GLTF2.load_from_bytes(res.path_for("viewer").read_bytes())
+    assert [n.name for n in doc.nodes] == ["mesh", "mesh"] and len(doc.meshes) == 1
+    assert doc.meshes[0].primitives[0].attributes.COLOR_0 is not None
     cfg2 = _cfg(tmp_path, monkeypatch, "rendering.exports.preview.enabled=false", "rendering.exports.step.enabled=true")
     with pytest.raises(ExportError, match="STEP export requires a B-rep"):
         render_part(mesh, cfg2, name="mesh2")
 
 
 def test_no_side_effects_creates_nothing(tmp_path, monkeypatch, clean_logging):
-    dots = [f"rendering.exports.{f}.enabled=false" for f in ("stl", "preview", "glb", "config", "stats")]
+    dots = [f"rendering.exports.{f}.enabled=false" for f in ("stl", "preview", "glb", "viewer", "config", "stats")]
     cfg = _cfg(tmp_path, monkeypatch, *dots)
     res = render_part(box(1, 1, 1), cfg, name="nothing")
     assert res.written == {} and not (tmp_path / "renders").exists()
@@ -109,20 +129,42 @@ def test_viewer_pushed_after_files(tmp_path, monkeypatch, clean_logging):
         res = render_part(box(1, 1, 1), cfg, name="Viewed", viewer=True)
     reach.assert_called_once()
     assert order[0][0] == "file" and show.call_count == 1
-    assert res.viewer_names == ("Viewed",)
-    # single body -> bundle GLB bytes were uploaded
-    assert show.call_args[0][0] == res.path_for("glb").read_bytes()
+    assert res.viewer_names == ("Viewed",) and res.viewer_parts == ("Viewed",)
+    # the viewer GLB from the bundle (one-part assembly) is what gets uploaded
+    assert show.call_args[0][0] == res.path_for("viewer").read_bytes()
     assert show.call_args[1]["names"] == "Viewed" and show.call_args[1]["server_type"] == "remote"
+    assert [p["name"] for p in show.call_args[1]["assembly"]["parts"]] == ["Viewed"]
+    assert res.to_dict()["viewer_parts"] == ["Viewed"]
 
 
-def test_viewer_colored_parts_for_assembly(tmp_path, monkeypatch, clean_logging):
+def test_viewer_assembly_pushed_as_one_object(tmp_path, monkeypatch, clean_logging):
     cfg = _cfg(tmp_path, monkeypatch, "rendering.exports.preview.enabled=false")
     assy = cq.Assembly(name="A").add(box(1, 1, 1), name="a").add(box(1, 1, 1).moved(cq.Location((3, 0, 0))), name="b")
-    with patch("bevel_cad.viewer.ensure_reachable"), patch("bevel_cad.viewer._show") as show:
+    with patch("bevel_cad.viewer.ensure_reachable"), patch("bevel_cad.viewer._show") as show, \
+         patch("bevel_cad.viewer._patch_meta") as meta:
         res = render_part(assy, cfg, name="pair", viewer=True)
-    assert res.viewer_names == ("a", "b") and show.call_count == 2
-    assert show.call_args_list[0][1]["auto_clear"] is True and show.call_args_list[1][1]["auto_clear"] is False
-    assert show.call_args_list[0][1]["color_faces"] is not None
+    assert res.viewer_names == ("pair",) and res.viewer_parts == ("a", "b") and show.call_count == 1
+    kw = show.call_args[1]
+    assert kw["names"] == "pair" and kw["auto_clear"] is True
+    assert [p["name"] for p in kw["assembly"]["parts"]] == ["a", "b"]
+    colors = [p["color"] for p in kw["assembly"]["parts"]]
+    assert len(set(colors)) == 2 and all(c.startswith("#") for c in colors)
+    assert show.call_args[0][0] == res.path_for("viewer").read_bytes()
+    meta.assert_called_once()
+    run_meta = meta.call_args[0][2]
+    assert run_meta.parts == ("a", "b") and run_meta.settings()["bevel.part_count"] == 2
+
+
+def test_viewer_job_synthesised_when_export_disabled_but_pushed(tmp_path, monkeypatch, clean_logging):
+    cfg = _cfg(tmp_path, monkeypatch, "rendering.exports.preview.enabled=false", "rendering.exports.viewer.enabled=false")
+    res_off = render_part(box(1, 1, 1), cfg, name="off")
+    assert "viewer" not in res_off.written and not (res_off.bundle_dir / f"{res_off.stem}.viewer.glb").exists()
+    with patch("bevel_cad.viewer.ensure_reachable"), patch("bevel_cad.viewer._show") as show:
+        res = render_part(box(1, 1, 1), cfg, name="on", viewer=True)
+    viewer_glb = res.bundle_dir / f"{res.stem}.viewer.glb"
+    assert viewer_glb.exists() and show.call_args[0][0] == viewer_glb.read_bytes()
+    assert res.plan.job("viewer").is_dependency_only
+    assert (res.bundle_dir / f"{res.stem}.assembly.json").exists()
 
 
 def test_viewer_unreachable_raises_before_writing(tmp_path, monkeypatch, clean_logging):

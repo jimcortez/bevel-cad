@@ -50,4 +50,4 @@ def test_examples_project_renders_from_a_copy(tmp_path, monkeypatch, clean_loggi
     assert main(["render", "button_label_custom", "--skip", "preview", "--json"]) == 0
     d = _json(capsys)
     assert d["run_name"] == "custom_label"
-    assert sorted(Path(p).name for p in d["extra_files"]) == [f"{d['stem']}_plate.stl", f"{d['stem']}_text_fill.stl"]
+    assert sorted(Path(p).name for p in d["extra_files"]) == [f"{d['stem']}.assembly.json", f"{d['stem']}_plate.stl", f"{d['stem']}_text_fill.stl"]

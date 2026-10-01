@@ -37,16 +37,35 @@ parts). Without a GL stack the single preview test skips.
 
 ## Working against a local cadquery-web-viewer checkout
 
-bevel talks to the viewer over HTTP, so it does not need the package installed. To run the
-viewer from a sibling checkout:
+bevel imports `cadquery_web_viewer` (2.3+, from PyPI) to tessellate `<stem>.viewer.glb` (one node
+per part) and uploads it over HTTP to a viewer you run separately. To develop against an
+unreleased viewer, install the sibling checkout into bevel's environment:
 
 ```bash
+uv sync --extra dev
+uv pip install -e ../cadquery-web-viewer
+# the viewer pulls in cadquery-ocp-novtk, whose OCP wheel overwrites cadquery's; put it back
+# (pinned to the locked version: an unpinned reinstall pulls a newer OCP that cadquery rejects):
+uv pip install --reinstall --no-deps "cadquery-ocp==$(uv pip show cadquery-ocp | awk '/^Version:/ {print $2}')"
+uv run --no-sync pytest            # --no-sync keeps the editable viewer
 cd ../cadquery-web-viewer && uv run cadquery-web-viewer
-cd ../bevel-cad && uv run bevel render <part> --viewer
+cd ../bevel-cad && uv run --no-sync bevel render <part> --viewer
 ```
 
-The `viewer` extra will come back once cadquery-web-viewer 2.2 (build123d 0.11 / OCP 7.9) is
-released; 2.1.x pins an OCP version that conflicts with cadquery 2.8.
+### The two OCP wheels
+
+cadquery needs `cadquery-ocp` (the VTK build); cadquery-web-viewer pulls in build123d, which needs
+`cadquery-ocp-novtk`. Both wheels write the same files into `site-packages/OCP/`, and uv installs
+them in parallel, so whichever lands last wins. If `import cadquery` fails with
+`cannot import name 'IVtkOCC_Shape' from 'OCP.IVtkOCC'`, the novtk build won. Put the VTK build
+back on top with a sync that reinstalls only that package at the locked version:
+
+```bash
+uv sync --extra dev --reinstall-package cadquery-ocp
+```
+
+CI runs exactly that after every `uv sync`, and the wheel smoke test does the `uv pip` equivalent.
+build123d and the viewer run fine on the VTK build.
 
 ## Pull request expectations
 

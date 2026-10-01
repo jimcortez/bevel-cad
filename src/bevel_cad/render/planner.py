@@ -21,6 +21,7 @@ _FORMAT_PHASE: Dict[str, int] = {
     "stl": 20,
     "3mf": 30,
     "glb": 40,
+    "viewer": 45,
     "gltf": 50,
     "obj": 60,
     "preview": 70,
@@ -208,8 +209,16 @@ class RenderPlanner:
         specs = [s for s in job_specs_from_config(cfg) if s.enabled]
         jobs = [_job_from_spec(s, bundle_dir=bundle_dir, bundle_stem=bundle_stem, run_name=run_name) for s in specs]
         jobs = _ensure_dependency_jobs(jobs, bundle_dir=bundle_dir, bundle_stem=bundle_stem, run_name=run_name)
-        _detect_duplicates(jobs)
         want_viewer = bool(cfg.viewer.enabled) if viewer is None else bool(viewer)
+        if want_viewer and not any(j.format == "viewer" for j in jobs):
+            # The viewer push sends <stem>.viewer.glb; write it even when the export is disabled.
+            jobs.append(_job_from_spec(
+                JobSpec(name="viewer", format="viewer", enabled=False,
+                        filename_template=DEFAULT_FILENAME_TEMPLATES["viewer"], settings={}),
+                bundle_dir=bundle_dir, bundle_stem=bundle_stem, run_name=run_name,
+                dependency_of="viewer-push", enabled_override=False,
+            ))
+        _detect_duplicates(jobs)
         return RenderPlan(
             bundle_dir=bundle_dir,
             bundle_stem=bundle_stem,

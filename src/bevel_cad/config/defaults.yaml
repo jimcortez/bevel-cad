@@ -26,6 +26,8 @@ rendering:
       background: "#1a1a2e"
     glb:
       enabled: true
+    viewer:               # {name}.viewer.glb + {name}.assembly.json: what `--viewer` / `bevel upload` send
+      enabled: true
     config:
       enabled: true
     stats:
@@ -56,3 +58,9 @@ viewer:
     color_faces: null
     color_edges: null
     color_vertices: null
+  colors:               # per-part face colours in the viewer assembly
+    mode: auto          # auto | manual | off
+    base: null          # palette base colour; null -> preview colour
+    parts: {}           # part name -> "#rrggbb" (override in auto, required in manual)
+  tags: []              # assembly-level tags shown in the viewer
+  part_tags: {}         # part name -> [extra tags]

@@ -11,7 +11,7 @@ their own blocks.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 __all__ = [
     "JOB_SETTINGS_TYPES",
@@ -22,6 +22,7 @@ __all__ = [
     "RenderingConfig",
     "StepSettings",
     "StlSettings",
+    "ViewerColors",
     "ViewerConfig",
     "ViewerStyle",
     "parse_color",
@@ -109,8 +110,21 @@ class ViewerStyle:
 
 
 @dataclass
+class ViewerColors:
+    """Per-part face colours of the viewer assembly (``bevel_cad.render.assembly``).
+
+    ``mode``: ``auto`` (evenly spaced hues from ``base``; ``parts`` override single parts),
+    ``manual`` (every part must be listed in ``parts``) or ``off`` (viewer default colour).
+    """
+
+    mode: str = "auto"
+    base: Optional[Any] = None  # colour spec; null -> preview colour -> neutral grey
+    parts: Dict[str, Any] = field(default_factory=dict)  # part name -> colour spec
+
+
+@dataclass
 class ViewerConfig:
-    """Connection to a running ``cadquery-web-viewer`` (remote mode)."""
+    """Connection to a running ``cadquery-web-viewer`` (remote mode) and assembly presentation."""
 
     enabled: bool = False
     host: str = "localhost"
@@ -120,6 +134,9 @@ class ViewerConfig:
     tolerance: float = 0.05
     angular_tolerance: float = 0.1
     style: ViewerStyle = field(default_factory=ViewerStyle)
+    colors: ViewerColors = field(default_factory=ViewerColors)
+    tags: List[str] = field(default_factory=list)  # assembly-level tags
+    part_tags: Dict[str, Any] = field(default_factory=dict)  # part name -> [tags]
 
 
 @dataclass

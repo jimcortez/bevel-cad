@@ -27,10 +27,26 @@ def test_defaults_enabled_and_order():
     assert specs["stl"].enabled and specs["stats"].enabled and specs["preview"].enabled
     assert not specs["obj"].enabled and not specs["step"].enabled
     plan = _plan(cfg)
-    assert [j.format for j in plan.execution_order] == ["stl", "glb", "preview", "config", "stats"]
+    assert [j.format for j in plan.execution_order] == ["stl", "glb", "viewer", "preview", "config", "stats"]
     assert plan.execution_order[0].resolved_path.name == "k_20250101-120000.stl"
+    assert plan.job("viewer").resolved_path.name == "k_20250101-120000.viewer.glb"
     assert plan.want_viewer is False
     assert _plan(cfg, viewer=True).want_viewer is True
+
+
+def test_viewer_job_synthesised_when_pushing_with_export_disabled():
+    cfg = load_layers(project_config=None, user_config=False, dotlist=["rendering.exports.viewer.enabled=false"]).cfg
+    assert _plan(cfg).job("viewer") is None
+    plan = _plan(cfg, viewer=True)
+    job = plan.job("viewer")
+    assert job is not None and job.is_dependency_only and job.dependency_of == "viewer-push"
+    assert [j.format for j in plan.execution_order] == ["stl", "glb", "viewer", "preview", "config", "stats"]
+
+
+def test_viewer_job_takes_no_settings():
+    cfg = OmegaConf.create({"rendering": {"exports": {"viewer": {"color": "red"}}}, "viewer": {"enabled": False}})
+    with pytest.raises(ValueError, match="takes no settings"):
+        _plan(cfg)
 
 
 def test_dependency_job_synthesised_when_glb_disabled():

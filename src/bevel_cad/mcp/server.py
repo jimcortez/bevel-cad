@@ -213,10 +213,12 @@ def create_server(
         root: Optional[str] = None,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> Dict[str, Any]:
-        """Build `target` and write its render bundle. Returns bundle_dir, files{job: path}, extra_files (per-body STLs), stats.
+        """Build `target` and write its render bundle. Returns bundle_dir, files{job: path}, extra_files (per-body STLs,
+        assembly manifest), stats.
 
         Use skip=["preview","stats"] for fast iteration; overrides={"block.size": 40} for one-off values;
-        viewer=True pushes to cadquery-web-viewer (must already be running)."""
+        viewer=True pushes the bundle's viewer GLB to cadquery-web-viewer (must already be running) as ONE assembly
+        object whose named parts (viewer_parts) can be toggled/recoloured individually."""
         dots = [f"{k}={json.dumps(v) if not isinstance(v, str) else v}" for k, v in (overrides or {}).items()]
         r = _root(server_root, root)
         if in_process_render:
@@ -276,7 +278,7 @@ def create_server(
     @mcp.tool()
     @_guard
     def upload(bundle: str, name: Optional[str] = None, root: Optional[str] = None) -> Dict[str, Any]:
-        """Push an existing bundle's GLB to the running cadquery-web-viewer."""
+        """Push an existing bundle's viewer GLB (+ assembly manifest) to the running cadquery-web-viewer as one assembly."""
         return commands.upload(bundle, name=name, root=_root(server_root, root)).to_dict()
 
     # --- scaffolding ------------------------------------------------------------------------
